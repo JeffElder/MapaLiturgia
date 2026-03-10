@@ -67,15 +67,22 @@ border-bottom:1px solid #eee;
 background:#f0f0f0;
 }
 
-/* Ícone das igrejas */
+/* Ícone Cruz de São Damião */
 
 .church-icon{
-transition:transform 0.2s ease;
+display:flex;
+align-items:center;
+justify-content:center;
 }
 
-.church-icon:hover{
-transform:scale(1.6);
-z-index:1000;
+.church-icon img{
+width:36px;
+height:36px;
+transition:transform .25s ease;
+}
+
+.church-icon img:hover{
+transform:scale(1.8);
 }
 
 </style>
@@ -114,7 +121,6 @@ L.tileLayer(
 attribution:'© OpenStreetMap'
 }).addTo(map);
 
-
 ////////////////////////////////////////////////////
 //////////////// LOCALIZAÇÃO ///////////////////////
 ////////////////////////////////////////////////////
@@ -129,7 +135,6 @@ L.marker(e.latlng)
 .openPopup();
 
 });
-
 
 ////////////////////////////////////////////////////
 //////////////////// BUSCA /////////////////////////
@@ -194,7 +199,6 @@ console.log("Erro busca:",err);
 
 }
 
-
 function showSuggestions(results){
 
 suggestions.innerHTML="";
@@ -229,7 +233,6 @@ suggestions.style.display="block";
 
 }
 
-
 function selectPlace(index){
 
 let place=resultsData[index];
@@ -249,7 +252,6 @@ input.value=place.display_name;
 suggestions.style.display="none";
 
 }
-
 
 input.addEventListener("keydown",function(e){
 
@@ -295,7 +297,6 @@ items[selectedIndex].classList.add("active");
 
 });
 
-
 document.addEventListener("click",function(e){
 
 if(!document.getElementById("searchContainer").contains(e.target)){
@@ -306,24 +307,22 @@ suggestions.style.display="none";
 
 });
 
-
 ////////////////////////////////////////////////////
 //////////// IGREJAS CATÓLICAS /////////////////////
 ////////////////////////////////////////////////////
 
 var churchesLayer=L.layerGroup().addTo(map);
 
-/* Ícone Crucifixo de São Damião */
+var churchIcon=L.divIcon({
 
-var churchIcon=L.icon({
+className:"church-icon",
 
-iconUrl:"https://upload.wikimedia.org/wikipedia/commons/7/7b/San_Damiano_Cross.png",
-iconSize:[36,36],
-iconAnchor:[18,36],
-className:"church-icon"
+html:`<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/San_Damiano_Cross.svg/512px-San_Damiano_Cross.svg.png">`,
+
+iconSize:[40,40],
+iconAnchor:[20,20]
 
 });
-
 
 async function loadCatholicChurches(){
 
@@ -386,13 +385,11 @@ console.log("Erro Overpass:",err);
 
 }
 
-
 const loadChurchesDebounced=debounce(loadCatholicChurches,2000);
 
 map.whenReady(loadChurchesDebounced);
 
 map.on("moveend",loadChurchesDebounced);
-
 
 });
 
