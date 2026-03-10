@@ -9,7 +9,7 @@
 
 <style>
 
-html, body{
+html,body{
 height:100%;
 margin:0;
 font-family:Arial;
@@ -17,7 +17,6 @@ font-family:Arial;
 
 #map{
 height:100%;
-width:100%;
 }
 
 #searchContainer{
@@ -26,7 +25,7 @@ top:15px;
 left:50%;
 transform:translateX(-50%);
 z-index:10000;
-width:340px;
+width:360px;
 }
 
 #searchBox{
@@ -35,11 +34,10 @@ align-items:center;
 background:white;
 border-radius:30px;
 box-shadow:0 4px 15px rgba(0,0,0,0.25);
-padding:8px 14px;
+padding:10px;
 }
 
 #searchIcon{
-font-size:18px;
 margin-right:8px;
 }
 
@@ -55,27 +53,19 @@ background:white;
 border-radius:10px;
 margin-top:6px;
 box-shadow:0 4px 15px rgba(0,0,0,0.25);
-max-height:240px;
+max-height:260px;
 overflow-y:auto;
 display:none;
 }
 
 .suggestion{
-padding:10px 14px;
+padding:10px;
 cursor:pointer;
 border-bottom:1px solid #eee;
 }
 
-.suggestion:last-child{
-border-bottom:none;
-}
-
 .suggestion:hover{
-background:#f2f2f2;
-}
-
-.suggestion.active{
-background:#e8f0fe;
+background:#f5f5f5;
 }
 
 </style>
@@ -87,7 +77,7 @@ background:#e8f0fe;
 
 <div id="searchBox">
 <div id="searchIcon">🔍</div>
-<input id="searchInput" placeholder="Buscar endereço ou lugar">
+<input id="searchInput" placeholder="Buscar endereço ou CEP">
 </div>
 
 <div id="suggestions"></div>
@@ -100,9 +90,8 @@ background:#e8f0fe;
 
 <script>
 
-document.addEventListener("DOMContentLoaded", function(){
+document.addEventListener("DOMContentLoaded",function(){
 
-// mapa
 var map = L.map('map').setView([-23.5505,-46.6333],13);
 
 L.tileLayer(
@@ -112,7 +101,7 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// localização
+// geolocalização
 if(navigator.geolocation){
 
 navigator.geolocation.getCurrentPosition(function(pos){
@@ -137,7 +126,6 @@ const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
 let resultsList = [];
-let selectedIndex = -1;
 
 
 // debounce
@@ -148,44 +136,13 @@ let timer;
 return function(){
 
 clearTimeout(timer);
-
-timer = setTimeout(func,delay);
-
-}
-
-}
-
-input.addEventListener("input", debounce(searchPlaces,300));
-
-
-// teclado
-input.addEventListener("keydown", function(e){
-
-if(e.key === "ArrowDown"){
-
-selectedIndex++;
-updateSelection();
-
-}
-
-if(e.key === "ArrowUp"){
-
-selectedIndex--;
-updateSelection();
-
-}
-
-if(e.key === "Enter"){
-
-if(selectedIndex >=0){
-
-selectPlace(resultsList[selectedIndex]);
+timer=setTimeout(func,delay);
 
 }
 
 }
 
-});
+input.addEventListener("input",debounce(searchPlaces,400));
 
 
 // busca
@@ -193,7 +150,7 @@ async function searchPlaces(){
 
 let query = input.value;
 
-if(query.length < 2){
+if(query.length < 3){
 
 suggestions.style.display="none";
 return;
@@ -202,56 +159,29 @@ return;
 
 let bbox = map.getBounds();
 
-let urlLocal =
-`https://photon.komoot.io/api/?q=${query}&limit=6&lang=pt&bbox=${bbox.getWest()},${bbox.getSouth()},${bbox.getEast()},${bbox.getNorth()}`;
+let url =
+`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&viewbox=${bbox.getWest()},${bbox.getNorth()},${bbox.getEast()},${bbox.getSouth()}&bounded=1&q=${query}`;
 
-let res = await fetch(urlLocal);
+let res = await fetch(url);
+
 let data = await res.json();
-
-let results = data.features;
 
 
 // fallback global
-if(results.length === 0){
+if(data.length === 0){
 
-let urlGlobal =
-`https://photon.komoot.io/api/?q=${query}&limit=6&lang=pt`;
+url =
+`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&q=${query}`;
 
-res = await fetch(urlGlobal);
+res = await fetch(url);
+
 data = await res.json();
 
-results = data.features;
-
 }
 
-resultsList = results;
-selectedIndex = -1;
+resultsList = data;
 
-showSuggestions(results);
-
-}
-
-
-// montar label em português
-function formatLabel(place){
-
-let props = place.properties;
-
-let parts = [];
-
-if(props.name) parts.push(props.name);
-
-if(props.street) parts.push(props.street);
-
-if(props.housenumber) parts.push(props.housenumber);
-
-if(props.city) parts.push(props.city);
-
-if(props.state) parts.push(props.state);
-
-if(props.country) parts.push(props.country);
-
-return parts.join(", ");
+showSuggestions(data);
 
 }
 
@@ -268,16 +198,16 @@ return;
 
 }
 
-results.forEach((place,index)=>{
+results.forEach(place=>{
 
-let label = formatLabel(place);
+let label = place.display_name;
 
 let div = document.createElement("div");
 
 div.className="suggestion";
 div.innerText = label;
 
-div.onclick = function(){
+div.onclick=function(){
 
 selectPlace(place);
 
@@ -292,38 +222,20 @@ suggestions.style.display="block";
 }
 
 
-// teclado seleção
-function updateSelection(){
-
-let items = document.querySelectorAll(".suggestion");
-
-items.forEach(el=>el.classList.remove("active"));
-
-if(selectedIndex >=0 && selectedIndex < items.length){
-
-items[selectedIndex].classList.add("active");
-
-}
-
-}
-
-
-// selecionar lugar
+// selecionar endereço
 function selectPlace(place){
 
-let lat = place.geometry.coordinates[1];
-let lon = place.geometry.coordinates[0];
+let lat = place.lat;
+let lon = place.lon;
 
-let label = formatLabel(place);
-
-map.setView([lat,lon],16);
+map.setView([lat,lon],17);
 
 L.marker([lat,lon])
 .addTo(map)
-.bindPopup(label)
+.bindPopup(place.display_name)
 .openPopup();
 
-input.value = label;
+input.value = place.display_name;
 
 suggestions.style.display="none";
 
