@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa com busca</title>
+<title>Mapa com busca inteligente</title>
 
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -35,10 +35,6 @@ background:white;
 border-radius:30px;
 box-shadow:0 4px 15px rgba(0,0,0,0.25);
 padding:10px;
-}
-
-#searchIcon{
-margin-right:8px;
 }
 
 #searchInput{
@@ -76,8 +72,8 @@ background:#f5f5f5;
 <div id="searchContainer">
 
 <div id="searchBox">
-<div id="searchIcon">🔍</div>
-<input id="searchInput" placeholder="Buscar endereço, lugar ou CEP">
+🔍
+<input id="searchInput" placeholder="Buscar cidade, rua ou CEP">
 </div>
 
 <div id="suggestions"></div>
@@ -101,9 +97,21 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// elementos
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
+
+
+// detectar tipo de busca
+function detectType(query){
+
+if(/^\d{5}-?\d{3}$/.test(query)) return "cep";
+
+if(/rua|avenida|av|travessa|alameda|estrada/i.test(query))
+return "rua";
+
+return "cidade";
+
+}
 
 
 // debounce
@@ -120,7 +128,7 @@ timer=setTimeout(func,delay);
 
 }
 
-input.addEventListener("input",debounce(searchPlaces,250));
+input.addEventListener("input",debounce(searchPlaces,300));
 
 
 // busca
@@ -128,71 +136,116 @@ async function searchPlaces(){
 
 let query = input.value;
 
-if(query.length === 0){
+if(query.length < 2){
 
 suggestions.style.display="none";
 return;
 
 }
 
-let bbox = map.getBounds();
+let type = detectType(query);
 
-let urlLocal =
-`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&viewbox=${bbox.getWest()},${bbox.getNorth()},${bbox.getEast()},${bbox.getSouth()}&bounded=1&q=${query}`;
+let url =
+`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=br&accept-language=pt-BR&q=${query}`;
 
-let res = await fetch(urlLocal);
-
+let res = await fetch(url);
 let data = await res.json();
 
+let filtered = [];
 
-// fallback global
-if(data.length === 0){
+data.forEach(place=>{
 
-let urlGlobal =
-`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&q=${query}`;
+let addr = place.address || {};
 
-res = await fetch(urlGlobal);
+if(type === "cidade"){
 
-data = await res.json();
+if(addr.city || addr.town || addr.village){
+
+filtered.push(place);
+
+}
+
+}
+
+if(type === "rua"){
+
+if(addr.road){
+
+filtered.push(place);
+
+}
+
+}
+
+if(type === "cep"){
+
+if(addr.postcode){
+
+filtered.push(place);
+
+}
+
+}
+
+});
+
+showSuggestions(filtered,type);
 
 }
 
 
-// fallback final (garantia de sugestão)
-if(data.length === 0){
+// montar label
+function buildLabel(place,type){
 
-data = [
-{
-display_name:`Buscar "${query}" no mapa`,
-lat: map.getCenter().lat,
-lon: map.getCenter().lng
-}
-];
+let addr = place.address || {};
+
+if(type === "cidade"){
+
+return addr.city || addr.town || addr.village;
 
 }
 
-showSuggestions(data);
+if(type === "rua"){
+
+return addr.road;
+
+}
+
+if(type === "cep"){
+
+return `${addr.postcode} - ${addr.road || ""} ${addr.city || ""}`;
+
+}
 
 }
 
 
 // mostrar sugestões
-function showSuggestions(results){
+function showSuggestions(results,type){
 
 suggestions.innerHTML="";
 
+if(results.length === 0){
+
+suggestions.style.display="none";
+return;
+
+}
+
 results.forEach(place=>{
 
-let label = place.display_name;
+let label = buildLabel(place,type);
+
+if(!label) return;
 
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText=label;
+div.innerText = label;
 
 div.onclick=function(){
 
-selectPlace(place);
+selectPlace(place,label);
 
 };
 
@@ -205,20 +258,20 @@ suggestions.style.display="block";
 }
 
 
-// selecionar lugar
-function selectPlace(place){
+// selecionar
+function selectPlace(place,label){
 
-let lat = parseFloat(place.lat);
-let lon = parseFloat(place.lon);
+let lat = place.lat;
+let lon = place.lon;
 
-map.setView([lat,lon],17);
+map.setView([lat,lon],16);
 
 L.marker([lat,lon])
 .addTo(map)
-.bindPopup(place.display_name)
+.bindPopup(label)
 .openPopup();
 
-input.value = place.display_name;
+input.value = label;
 
 suggestions.style.display="none";
 
