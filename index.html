@@ -21,16 +21,38 @@ height: 100vh;
 
 <script>
 
-var map = L.map('map').setView([-23.5505, -46.6333], 13);
+// cria o mapa inicialmente sem posição definida
+var map = L.map('map');
 
+// adiciona o mapa base
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-L.marker([-23.5505, -46.6333])
+// verifica geolocalização
+if (navigator.geolocation) {
+
+navigator.geolocation.getCurrentPosition(function(position) {
+
+var lat = position.coords.latitude;
+var lon = position.coords.longitude;
+
+// centraliza o mapa
+map.setView([lat, lon], 13);
+
+// adiciona marcador
+L.marker([lat, lon])
 .addTo(map)
-.bindPopup("Meu ponto no mapa")
+.bindPopup("Você está aqui")
 .openPopup();
+
+}, function() {
+alert("Não foi possível obter sua localização.");
+});
+
+} else {
+alert("Geolocalização não é suportada pelo seu navegador.");
+}
 
 </script>
 
