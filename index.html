@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa com busca inteligente</title>
+<title>Mapa com localização</title>
 
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -98,50 +98,59 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// variáveis
-let userLat = null;
-let userLon = null;
+// tentar pegar localização
+requestLocation();
 
+function requestLocation(){
 
-// pegar localização do usuário
-if(navigator.geolocation){
+if(!navigator.geolocation){
 
-navigator.geolocation.getCurrentPosition(function(pos){
+console.log("Geolocalização não suportada");
 
-userLat = pos.coords.latitude;
-userLon = pos.coords.longitude;
+return;
 
-map.setView([userLat,userLon],15);
+}
 
-L.marker([userLat,userLon])
+navigator.geolocation.getCurrentPosition(
+
+function(pos){
+
+let lat = pos.coords.latitude;
+let lon = pos.coords.longitude;
+
+map.setView([lat,lon],15);
+
+L.marker([lat,lon])
 .addTo(map)
 .bindPopup("Você está aqui")
 .openPopup();
 
-});
+},
+
+function(err){
+
+console.log("Erro localização:",err.message);
+
+// fallback Brasil
+map.setView([-15,-55],4);
+
+},
+
+{
+enableHighAccuracy:true,
+timeout:10000,
+maximumAge:0
+}
+
+);
 
 }
 
 
-// elementos
+// busca (simplificada)
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-
-// detectar tipo de busca
-function detectType(query){
-
-if(/^\d{5}-?\d{3}$/.test(query)) return "cep";
-
-if(/rua|avenida|av|travessa|alameda|estrada/i.test(query))
-return "rua";
-
-return "cidade";
-
-}
-
-
-// debounce
 function debounce(func,delay){
 
 let timer;
@@ -158,7 +167,6 @@ timer=setTimeout(func,delay);
 input.addEventListener("input",debounce(searchPlaces,300));
 
 
-// busca
 async function searchPlaces(){
 
 let query = input.value;
@@ -170,99 +178,19 @@ return;
 
 }
 
-let type = detectType(query);
-
-
-// priorizar área próxima ao usuário
-let viewbox = "";
-
-if(userLat && userLon){
-
-let delta = 0.5;
-
-viewbox =
-`&viewbox=${userLon-delta},${userLat+delta},${userLon+delta},${userLat-delta}&bounded=1`;
-
-}
-
-
 let url =
-`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=br&accept-language=pt-BR${viewbox}&q=${query}`;
+`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&accept-language=pt-BR&q=${query}`;
 
 let res = await fetch(url);
+
 let data = await res.json();
 
-let filtered = [];
-
-data.forEach(place=>{
-
-let addr = place.address || {};
-
-if(type === "cidade"){
-
-if(addr.city || addr.town || addr.village){
-
-filtered.push(place);
-
-}
-
-}
-
-if(type === "rua"){
-
-if(addr.road){
-
-filtered.push(place);
-
-}
-
-}
-
-if(type === "cep"){
-
-if(addr.postcode){
-
-filtered.push(place);
-
-}
-
-}
-
-});
-
-showSuggestions(filtered,type);
+showSuggestions(data);
 
 }
 
 
-// label
-function buildLabel(place,type){
-
-let addr = place.address || {};
-
-if(type === "cidade"){
-
-return addr.city || addr.town || addr.village;
-
-}
-
-if(type === "rua"){
-
-return addr.road;
-
-}
-
-if(type === "cep"){
-
-return `${addr.postcode} - ${addr.road || ""} ${addr.city || ""}`;
-
-}
-
-}
-
-
-// mostrar sugestões
-function showSuggestions(results,type){
+function showSuggestions(results){
 
 suggestions.innerHTML="";
 
@@ -275,32 +203,14 @@ return;
 
 results.forEach(place=>{
 
-let label = buildLabel(place,type);
-
-if(!label) return;
+let label = place.display_name;
 
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText = label;
+div.innerText=label;
 
 div.onclick=function(){
-
-selectPlace(place,label);
-
-};
-
-suggestions.appendChild(div);
-
-});
-
-suggestions.style.display="block";
-
-}
-
-
-// selecionar
-function selectPlace(place,label){
 
 let lat = place.lat;
 let lon = place.lon;
@@ -312,9 +222,15 @@ L.marker([lat,lon])
 .bindPopup(label)
 .openPopup();
 
-input.value = label;
-
 suggestions.style.display="none";
+
+};
+
+suggestions.appendChild(div);
+
+});
+
+suggestions.style.display="block";
 
 }
 
