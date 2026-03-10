@@ -9,12 +9,6 @@
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
-
 <style>
 
 html,body{
@@ -26,16 +20,6 @@ font-family:Arial;
 #map{
 height:100%;
 }
-
-/* Ícone gigante para máxima visibilidade */
-
-.churchIcon{
-width:320px !important;
-height:320px !important;
-filter: drop-shadow(0 0 8px black);
-}
-
-/* barra de busca */
 
 #searchContainer{
 position:absolute;
@@ -102,7 +86,6 @@ placeholder="Buscar endereço, rua, cidade ou CEP">
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
 
@@ -153,7 +136,7 @@ timer=setTimeout(func,delay);
 input.addEventListener("input",debounce(searchPlaces,250));
 
 
-// autocomplete Photon
+// autocomplete
 async function searchPlaces(){
 
 let query = input.value;
@@ -169,6 +152,7 @@ let url =
 `https://photon.komoot.io/api/?q=${query}&limit=6&lang=pt`;
 
 let res = await fetch(url);
+
 let data = await res.json();
 
 showSuggestions(data.features);
@@ -229,6 +213,7 @@ let url =
 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`;
 
 let res = await fetch(url);
+
 let data = await res.json();
 
 let label = data.display_name;
@@ -253,32 +238,23 @@ suggestions.style.display="none";
 ////////////////////////////////////////////////////
 
 
-// cluster inteligente
-var churchesLayer = L.markerClusterGroup({
-
-maxClusterRadius:40,
-disableClusteringAtZoom:16
-
-});
-
-map.addLayer(churchesLayer);
+// camada
+var churchesLayer = L.layerGroup().addTo(map);
 
 
-// ícone gigante medieval
+// ícone grande de Cristo medieval
 var churchIcon = L.icon({
 
-iconUrl:"https://upload.wikimedia.org/wikipedia/commons/1/1f/Crucifixion_Giotto_full.jpg",
+iconUrl:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Crucifixion_Giotto_Scrovegni.jpg/1024px-Crucifixion_Giotto_Scrovegni.jpg",
 
-iconSize:[320,320],
-iconAnchor:[160,320],
-popupAnchor:[0,-300],
-
-className:"churchIcon"
+iconSize:[280,280],
+iconAnchor:[140,280],
+popupAnchor:[0,-260]
 
 });
 
 
-// cache de áreas
+// cache
 var loadedAreas = {};
 var requestRunning = false;
 var churchTimeout = null;
@@ -297,8 +273,7 @@ return zoom+"_"+lat+"_"+lon;
 }
 
 
-
-// disparar carregamento
+// carregar igrejas
 function loadCatholicChurches(){
 
 if(map.getZoom() < 13) return;
@@ -310,18 +285,19 @@ churchTimeout = setTimeout(fetchChurches,1500);
 }
 
 
-
-// consulta Overpass
+// buscar na API
 async function fetchChurches(){
 
 if(requestRunning) return;
 
 var bounds = map.getBounds();
+
 var key = getAreaKey(bounds);
 
 if(loadedAreas[key]) return;
 
 requestRunning = true;
+
 loadedAreas[key] = true;
 
 var south = bounds.getSouth();
@@ -365,8 +341,12 @@ var lon = el.lon || el.center.lon;
 
 var name = el.tags?.name || "Igreja Católica";
 
-var marker = L.marker([lat,lon],{icon:churchIcon})
-.bindPopup(name);
+var marker = L.marker([lat,lon],{
+
+icon:churchIcon,
+riseOnHover:true
+
+}).bindPopup(name);
 
 churchesLayer.addLayer(marker);
 
