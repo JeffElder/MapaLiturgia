@@ -7,12 +7,14 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-#map {
-height: 100vh;
+html, body {
+height: 100%;
 margin: 0;
 }
-body{
-margin:0;
+
+#map {
+height: 100%;
+width: 100%;
 }
 </style>
 </head>
@@ -25,21 +27,21 @@ margin:0;
 
 <script>
 
-// limites do mundo
-var bounds = [
-[-90, -180],
-[90, 180]
-];
+// limites reais do sistema Web Mercator
+const southWest = L.latLng(-85.05112878, -180);
+const northEast = L.latLng(85.05112878, 180);
+const bounds = L.latLngBounds(southWest, northEast);
 
-// cria mapa com limites
+// criação do mapa
 var map = L.map('map', {
 minZoom: 4,
 maxZoom: 19,
 maxBounds: bounds,
-maxBoundsViscosity: 1.0
+maxBoundsViscosity: 1.0,
+worldCopyJump: false
 });
 
-// camada do mapa
+// camada base
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 attribution: '© OpenStreetMap contributors',
 noWrap: true,
@@ -47,18 +49,17 @@ minZoom: 4,
 maxZoom: 19
 }).addTo(map);
 
+
 // geolocalização
 if (navigator.geolocation) {
 
 navigator.geolocation.getCurrentPosition(function(position) {
 
-var lat = position.coords.latitude;
-var lon = position.coords.longitude;
+const lat = position.coords.latitude;
+const lon = position.coords.longitude;
 
-// centraliza mapa
 map.setView([lat, lon], 13);
 
-// marcador
 L.marker([lat, lon])
 .addTo(map)
 .bindPopup("Você está aqui")
@@ -66,20 +67,29 @@ L.marker([lat, lon])
 
 }, function() {
 
-// localização padrão
-map.setView([-23.5505, -46.6333], 13);
-
-L.marker([-23.5505, -46.6333])
-.addTo(map)
-.bindPopup("Local padrão")
-.openPopup();
+abrirPadrao();
 
 });
 
 } else {
 
-// fallback
-map.setView([-23.5505, -46.6333], 13);
+abrirPadrao();
+
+}
+
+
+// fallback caso não consiga localização
+function abrirPadrao(){
+
+const lat = -23.5505;
+const lon = -46.6333;
+
+map.setView([lat, lon], 13);
+
+L.marker([lat, lon])
+.addTo(map)
+.bindPopup("Local padrão")
+.openPopup();
 
 }
 
