@@ -9,6 +9,12 @@
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+
 <style>
 
 html,body{
@@ -86,6 +92,7 @@ placeholder="Buscar endereço, rua, cidade ou CEP">
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
 
@@ -232,36 +239,79 @@ suggestions.style.display="none";
 }
 
 
-////////////////////////////////////////////////////////
-////////////  ADIÇÃO: IGREJAS CATÓLICAS  ///////////////
-////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////
+//////////// IGREJAS CATÓLICAS OTIMIZADO ///////////
+////////////////////////////////////////////////////
 
 
-// camada para igrejas
-var churchesLayer = L.layerGroup().addTo(map);
+// cluster
+var churchesLayer = L.markerClusterGroup();
+map.addLayer(churchesLayer);
 
 
-// icone customizado
-
+// ícone medieval 5x maior
 var churchIcon = L.icon({
-iconUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Crucifixion_Giotto.jpg/256px-Crucifixion_Giotto.jpg",
-iconSize: [160,160],     // 5x maior que 32
-iconAnchor: [80,160],    // centro inferior
-popupAnchor: [0,-150]
+iconUrl:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Crucifixion_Giotto.jpg/256px-Crucifixion_Giotto.jpg",
+iconSize:[160,160],
+iconAnchor:[80,160],
+popupAnchor:[0,-140]
 });
 
 
-// buscar igrejas na área visível
-async function loadCatholicChurches(){
+// cache
+var loadedAreas = {};
+var requestRunning = false;
+var churchTimeout = null;
 
-churchesLayer.clearLayers();
+
+// gerar chave de área (grid)
+function getAreaKey(bounds){
+
+var zoom = map.getZoom();
+
+var lat = bounds.getCenter().lat.toFixed(2);
+var lon = bounds.getCenter().lng.toFixed(2);
+
+return zoom+"_"+lat+"_"+lon;
+
+}
+
+
+
+// carregar igrejas
+function loadCatholicChurches(){
+
+if(map.getZoom() < 13) return;
+
+clearTimeout(churchTimeout);
+
+churchTimeout = setTimeout(fetchChurches,1500);
+
+}
+
+
+
+// buscar na API
+async function fetchChurches(){
+
+if(requestRunning) return;
 
 var bounds = map.getBounds();
+
+var key = getAreaKey(bounds);
+
+if(loadedAreas[key]) return;
+
+requestRunning = true;
+
+loadedAreas[key] = true;
 
 var south = bounds.getSouth();
 var west = bounds.getWest();
 var north = bounds.getNorth();
 var east = bounds.getEast();
+
 
 var query = `
 [out:json][timeout:25];
@@ -272,12 +322,22 @@ way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="cathol
 out center;
 `;
 
-var url = "https://overpass-api.de/api/interpreter";
+try{
 
-var res = await fetch(url,{
+var res = await fetch(
+"https://overpass-api.de/api/interpreter",
+{
 method:"POST",
 body:query
 });
+
+if(!res.ok){
+
+console.warn("Overpass limitou:",res.status);
+requestRunning=false;
+return;
+
+}
 
 var data = await res.json();
 
@@ -286,22 +346,27 @@ data.elements.forEach(el=>{
 var lat = el.lat || el.center.lat;
 var lon = el.lon || el.center.lon;
 
-var name = el.tags.name || "Igreja Católica";
+var name = el.tags?.name || "Igreja Católica";
 
-L.marker([lat,lon],{icon:churchIcon})
-.addTo(churchesLayer)
+var marker = L.marker([lat,lon],{icon:churchIcon})
 .bindPopup(name);
 
+churchesLayer.addLayer(marker);
+
 });
+
+}catch(e){
+
+console.warn("Erro Overpass",e);
+
+}
+
+requestRunning=false;
 
 }
 
 
-// carregar inicialmente
-map.on("load",loadCatholicChurches);
-
-
-// atualizar quando mover o mapa
+// carregar ao mover mapa
 map.on("moveend",loadCatholicChurches);
 
 
