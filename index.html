@@ -27,7 +27,7 @@ top:15px;
 left:50%;
 transform:translateX(-50%);
 z-index:10000;
-width:360px;
+width:380px;
 }
 
 #searchBox{
@@ -43,7 +43,7 @@ padding:10px;
 border:none;
 outline:none;
 width:100%;
-font-size:14px;
+font-size:15px;
 }
 
 #suggestions{
@@ -51,7 +51,7 @@ background:white;
 border-radius:10px;
 margin-top:6px;
 box-shadow:0 4px 15px rgba(0,0,0,0.25);
-max-height:260px;
+max-height:300px;
 overflow-y:auto;
 display:none;
 }
@@ -60,10 +60,12 @@ display:none;
 padding:10px;
 cursor:pointer;
 border-bottom:1px solid #eee;
+font-size:14px;
 }
 
-.suggestion:hover{
-background:#f5f5f5;
+.suggestion:hover,
+.suggestion.active{
+background:#f0f0f0;
 }
 
 </style>
@@ -74,9 +76,9 @@ background:#f5f5f5;
 <div id="searchContainer">
 
 <div id="searchBox">
-🔍
+🔎
 <input id="searchInput"
-placeholder="Buscar endereço, rua, cidade ou CEP">
+placeholder="Buscar rua, cidade ou CEP">
 </div>
 
 <div id="suggestions"></div>
@@ -100,7 +102,7 @@ var map = L.map('map').setView([-15,-55],4);
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
-attribution:'© OpenStreetMap contributors'
+attribution:'© OpenStreetMap'
 }).addTo(map);
 
 
@@ -127,10 +129,14 @@ L.marker(e.latlng)
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
+let selectedIndex = -1;
+let resultsData = [];
+
+
 
 //////////////////// DEBOUNCE //////////////////////
 
-function debounce(func, delay){
+function debounce(func,delay){
 
 let timer;
 
@@ -138,7 +144,7 @@ return function(...args){
 
 clearTimeout(timer);
 
-timer = setTimeout(()=>{
+timer=setTimeout(()=>{
 func.apply(this,args)
 },delay);
 
@@ -146,16 +152,18 @@ func.apply(this,args)
 
 }
 
-input.addEventListener("input",debounce(searchPlaces,250));
+input.addEventListener("input",debounce(searchPlaces,300));
 
 
-//////////////// BUSCAR LOCAIS /////////////////////
+////////////////////////////////////////////////////
+//////////////// BUSCA NOMINATIM ///////////////////
+////////////////////////////////////////////////////
 
 async function searchPlaces(){
 
 let query = input.value.trim();
 
-if(query.length < 2){
+if(query.length < 3){
 
 suggestions.style.display="none";
 return;
@@ -165,55 +173,52 @@ return;
 try{
 
 let url =
-`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=pt`;
+`https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&countrycodes=br&q=${encodeURIComponent(query)}`;
 
 let res = await fetch(url);
 
 let data = await res.json();
 
-showSuggestions(data.features);
+resultsData = data;
+
+showSuggestions(data);
 
 }catch(err){
 
-console.error("Erro na busca:",err);
+console.error(err);
 
 }
 
 }
 
 
+
+////////////////////////////////////////////////////
 /////////////// MOSTRAR SUGESTÕES //////////////////
+////////////////////////////////////////////////////
 
 function showSuggestions(results){
 
 suggestions.innerHTML="";
+selectedIndex = -1;
 
-if(!results || results.length === 0){
+if(results.length===0){
 
 suggestions.style.display="none";
 return;
 
 }
 
-results.forEach(place=>{
-
-let props = place.properties;
-
-let label =
-props.name ||
-props.street ||
-props.city ||
-props.state ||
-"Local";
+results.forEach((place,index)=>{
 
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText = label;
+div.innerText = place.display_name;
 
 div.onclick=function(){
 
-selectPlace(place);
+selectPlace(index);
 
 };
 
@@ -226,45 +231,86 @@ suggestions.style.display="block";
 }
 
 
+
+////////////////////////////////////////////////////
 //////////////// SELECIONAR LOCAL //////////////////
+////////////////////////////////////////////////////
 
-async function selectPlace(place){
+function selectPlace(index){
 
-let lat = place.geometry.coordinates[1];
-let lon = place.geometry.coordinates[0];
+let place = resultsData[index];
 
-try{
-
-let url =
-`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`;
-
-let res = await fetch(url);
-
-let data = await res.json();
-
-let label = data.display_name;
+let lat = place.lat;
+let lon = place.lon;
 
 map.setView([lat,lon],17);
 
 L.marker([lat,lon])
 .addTo(map)
-.bindPopup(label)
+.bindPopup(place.display_name)
 .openPopup();
 
-input.value = label;
+input.value = place.display_name;
 
 suggestions.style.display="none";
 
-}catch(err){
-
-console.error("Erro ao buscar detalhes:",err);
-
-}
-
 }
 
 
-////////// ESCONDER SUGESTÕES AO CLICAR FORA ///////
+
+////////////////////////////////////////////////////
+//////////// NAVEGAÇÃO TECLADO /////////////////////
+////////////////////////////////////////////////////
+
+input.addEventListener("keydown",function(e){
+
+let items = document.querySelectorAll(".suggestion");
+
+if(!items.length) return;
+
+if(e.key==="ArrowDown"){
+
+selectedIndex++;
+
+if(selectedIndex>=items.length) selectedIndex=0;
+
+}
+
+else if(e.key==="ArrowUp"){
+
+selectedIndex--;
+
+if(selectedIndex<0) selectedIndex=items.length-1;
+
+}
+
+else if(e.key==="Enter"){
+
+if(selectedIndex>=0){
+
+selectPlace(selectedIndex);
+
+}
+
+return;
+
+}
+
+items.forEach(el=>el.classList.remove("active"));
+
+if(selectedIndex>=0){
+
+items[selectedIndex].classList.add("active");
+
+}
+
+});
+
+
+
+////////////////////////////////////////////////////
+////////// ESCONDER AO CLICAR FORA /////////////////
+////////////////////////////////////////////////////
 
 document.addEventListener("click",function(e){
 
@@ -277,10 +323,10 @@ suggestions.style.display="none";
 });
 
 
+
 ////////////////////////////////////////////////////
 //////////// IGREJAS CATÓLICAS /////////////////////
 ////////////////////////////////////////////////////
-
 
 var churchesLayer = L.layerGroup().addTo(map);
 
@@ -289,8 +335,7 @@ var churchIcon = L.icon({
 
 iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448339.png",
 iconSize:[32,32],
-iconAnchor:[16,32],
-popupAnchor:[0,-30]
+iconAnchor:[16,32]
 
 });
 
@@ -341,7 +386,7 @@ L.marker([lat,lon],{icon:churchIcon})
 
 }catch(err){
 
-console.error("Erro Overpass:",err);
+console.error(err);
 
 }
 
