@@ -25,13 +25,21 @@ margin:0;
 
 <script>
 
-// cria o mapa com limite de zoom
+// limites do mundo
+var bounds = [
+[-90, -180],
+[90, 180]
+];
+
+// cria mapa com limites
 var map = L.map('map', {
 minZoom: 4,
-maxZoom: 19
+maxZoom: 19,
+maxBounds: bounds,
+maxBoundsViscosity: 1.0
 });
 
-// adiciona o mapa base
+// camada do mapa
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 attribution: '© OpenStreetMap contributors',
 noWrap: true,
@@ -39,7 +47,7 @@ minZoom: 4,
 maxZoom: 19
 }).addTo(map);
 
-// verifica geolocalização
+// geolocalização
 if (navigator.geolocation) {
 
 navigator.geolocation.getCurrentPosition(function(position) {
@@ -47,10 +55,10 @@ navigator.geolocation.getCurrentPosition(function(position) {
 var lat = position.coords.latitude;
 var lon = position.coords.longitude;
 
-// centraliza mapa na localização do usuário
+// centraliza mapa
 map.setView([lat, lon], 13);
 
-// adiciona marcador
+// marcador
 L.marker([lat, lon])
 .addTo(map)
 .bindPopup("Você está aqui")
@@ -58,7 +66,7 @@ L.marker([lat, lon])
 
 }, function() {
 
-// caso não permita localização
+// localização padrão
 map.setView([-23.5505, -46.6333], 13);
 
 L.marker([-23.5505, -46.6333])
@@ -70,7 +78,7 @@ L.marker([-23.5505, -46.6333])
 
 } else {
 
-// navegador não suporta geolocalização
+// fallback
 map.setView([-23.5505, -46.6333], 13);
 
 }
