@@ -231,6 +231,79 @@ suggestions.style.display="none";
 
 }
 
+
+////////////////////////////////////////////////////////
+////////////  ADIÇÃO: IGREJAS CATÓLICAS  ///////////////
+////////////////////////////////////////////////////////
+
+
+// camada para igrejas
+var churchesLayer = L.layerGroup().addTo(map);
+
+
+// icone customizado
+var churchIcon = L.icon({
+iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448339.png",
+iconSize: [32,32],
+iconAnchor: [16,32],
+popupAnchor: [0,-30]
+});
+
+
+// buscar igrejas na área visível
+async function loadCatholicChurches(){
+
+churchesLayer.clearLayers();
+
+var bounds = map.getBounds();
+
+var south = bounds.getSouth();
+var west = bounds.getWest();
+var north = bounds.getNorth();
+var east = bounds.getEast();
+
+var query = `
+[out:json][timeout:25];
+(
+node["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
+way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
+);
+out center;
+`;
+
+var url = "https://overpass-api.de/api/interpreter";
+
+var res = await fetch(url,{
+method:"POST",
+body:query
+});
+
+var data = await res.json();
+
+data.elements.forEach(el=>{
+
+var lat = el.lat || el.center.lat;
+var lon = el.lon || el.center.lon;
+
+var name = el.tags.name || "Igreja Católica";
+
+L.marker([lat,lon],{icon:churchIcon})
+.addTo(churchesLayer)
+.bindPopup(name);
+
+});
+
+}
+
+
+// carregar inicialmente
+map.on("load",loadCatholicChurches);
+
+
+// atualizar quando mover o mapa
+map.on("moveend",loadCatholicChurches);
+
+
 });
 </script>
 
