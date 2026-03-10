@@ -67,24 +67,6 @@ border-bottom:1px solid #eee;
 background:#f0f0f0;
 }
 
-/* Ícone Cruz de São Damião */
-
-.church-icon{
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.church-icon img{
-width:36px;
-height:36px;
-transition:transform .25s ease;
-}
-
-.church-icon img:hover{
-transform:scale(1.8);
-}
-
 </style>
 </head>
 
@@ -313,31 +295,40 @@ suggestions.style.display="none";
 
 var churchesLayer=L.layerGroup().addTo(map);
 
-var churchIcon=L.divIcon({
-
-className:"church-icon",
-
-html:`<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/San_Damiano_Cross.svg/512px-San_Damiano_Cross.svg.png">`,
-
-iconSize:[40,40],
-iconAnchor:[20,20]
-
+var churchIcon = L.divIcon({
+className: "",
+html: `<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/San_Damiano_Cross.svg/512px-San_Damiano_Cross.svg.png" style="width:36px;height:36px;">`,
+iconSize: [36,36],
+iconAnchor: [18,36],
+popupAnchor: [0,-36]
 });
 
+let lastRequestTime = 0;
+
 async function loadCatholicChurches(){
+
+// só carrega se zoom >= 13
+if(map.getZoom() < 13) return;
+
+let now = Date.now();
+
+// espera pelo menos 5 segundos entre requisições
+if(now - lastRequestTime < 5000) return;
+
+lastRequestTime = now;
 
 try{
 
 churchesLayer.clearLayers();
 
-var bounds=map.getBounds();
+var bounds = map.getBounds();
 
-var south=bounds.getSouth();
-var west=bounds.getWest();
-var north=bounds.getNorth();
-var east=bounds.getEast();
+var south = bounds.getSouth();
+var west = bounds.getWest();
+var north = bounds.getNorth();
+var east = bounds.getEast();
 
-var query=`
+var query = `
 [out:json][timeout:25];
 (
 node["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
@@ -346,7 +337,7 @@ way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="cathol
 out center;
 `;
 
-var res=await fetch(
+var res = await fetch(
 "https://overpass-api.de/api/interpreter",
 {
 method:"POST",
@@ -354,22 +345,20 @@ body:query
 });
 
 if(!res.ok){
-
 console.log("Overpass limitou requisição");
 return;
-
 }
 
-var data=await res.json();
+var data = await res.json();
 
 data.elements.forEach(el=>{
 
-var lat=el.lat || el.center?.lat;
-var lon=el.lon || el.center?.lon;
+var lat = el.lat || el.center?.lat;
+var lon = el.lon || el.center?.lon;
 
 if(!lat || !lon) return;
 
-var name=el.tags?.name || "Igreja Católica";
+var name = el.tags?.name || "Igreja Católica";
 
 L.marker([lat,lon],{icon:churchIcon})
 .addTo(churchesLayer)
