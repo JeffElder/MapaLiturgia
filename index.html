@@ -2,63 +2,56 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa avançado</title>
+<title>Mapa com busca</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <style>
 
-html,body{
+html, body{
 height:100%;
 margin:0;
 }
 
 #map{
 height:100%;
+width:100%;
 }
 
+/* barra de busca */
 #searchBox{
 position:absolute;
 top:10px;
-left:60px;
-z-index:1000;
+left:50%;
+transform:translateX(-50%);
+z-index:9999;
 background:white;
 padding:8px;
 border-radius:6px;
-box-shadow:0 3px 8px rgba(0,0,0,0.25);
-width:260px;
+box-shadow:0 3px 8px rgba(0,0,0,0.3);
+width:280px;
+}
+
+#searchInput{
+width:100%;
+padding:6px;
 }
 
 #suggestions{
-max-height:220px;
+background:white;
+max-height:200px;
 overflow-y:auto;
-border-top:1px solid #ddd;
-margin-top:5px;
+border-top:1px solid #ccc;
 }
 
 .suggestion{
 padding:6px;
 cursor:pointer;
-font-size:14px;
 }
 
 .suggestion:hover{
-background:#f0f0f0;
-}
-
-.locateBtn{
-position:absolute;
-top:70px;
-left:10px;
-z-index:1000;
-background:white;
-border-radius:4px;
-padding:6px;
-cursor:pointer;
-box-shadow:0 2px 6px rgba(0,0,0,0.3);
+background:#eee;
 }
 
 </style>
@@ -66,96 +59,37 @@ box-shadow:0 2px 6px rgba(0,0,0,0.3);
 
 <body>
 
+<!-- barra de busca -->
 <div id="searchBox">
-<input id="searchInput" placeholder="Buscar endereço..." style="width:100%">
+<input id="searchInput" placeholder="Buscar endereço...">
 <div id="suggestions"></div>
 </div>
-
-<div class="locateBtn" onclick="goToLocation()">📍</div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-
 <script>
 
-// limites do mapa
-const bounds = L.latLngBounds(
-L.latLng(-85.05112878,-180),
-L.latLng(85.05112878,180)
-);
-
-// mapa
-var map = L.map('map',{
-minZoom:4,
-maxZoom:19,
-maxBounds:bounds,
-maxBoundsViscosity:1.0
-});
+// criar mapa
+var map = L.map('map').setView([-23.5505,-46.6333],13);
 
 // tiles
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
-attribution:'© OpenStreetMap contributors',
-noWrap:true
+attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// cluster de marcadores
-var markers = L.markerClusterGroup();
-map.addLayer(markers);
-
-
-// localização inicial
-function goToLocation(){
-
-if(navigator.geolocation){
-
-navigator.geolocation.getCurrentPosition(function(pos){
-
-let lat = pos.coords.latitude;
-let lon = pos.coords.longitude;
-
-map.setView([lat,lon],13);
-
-let marker = L.marker([lat,lon])
-.bindPopup("Você está aqui");
-
-markers.addLayer(marker);
-
-marker.openPopup();
-
-});
-
-}
-
-}
-
-// iniciar com localização
-goToLocation();
-
-
-// debounce para evitar muitas requisições
-function debounce(func,delay){
-let timeout;
-return function(...args){
-clearTimeout(timeout);
-timeout = setTimeout(()=>func.apply(this,args),delay);
-}
-}
-
+// elementos da busca
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-input.addEventListener("input",
-debounce(searchPlaces,350)
-);
+input.addEventListener("input", searchPlaces);
 
 
-// busca
+// busca simples
 async function searchPlaces(){
 
 let query = input.value;
@@ -165,46 +99,18 @@ suggestions.innerHTML="";
 return;
 }
 
-let bbox = map.getBounds();
+let url =
+`https://photon.komoot.io/api/?q=${query}&limit=5`;
 
-let urlLocal =
-`https://photon.komoot.io/api/?q=${query}&limit=5&bbox=${bbox.getWest()},${bbox.getSouth()},${bbox.getEast()},${bbox.getNorth()}&lang=pt`;
-
-let response = await fetch(urlLocal);
+let response = await fetch(url);
 let data = await response.json();
 
-let results = data.features;
-
-
-// se não encontrar → busca global
-if(results.length === 0){
-
-let urlGlobal =
-`https://photon.komoot.io/api/?q=${query}&limit=5&lang=pt`;
-
-response = await fetch(urlGlobal);
-data = await response.json();
-
-results = data.features;
-
-}
-
-// priorizar Brasil
-results.sort((a,b)=>{
-
-let ca = a.properties.countrycode === "BR" ? -1 : 1;
-let cb = b.properties.countrycode === "BR" ? -1 : 1;
-
-return ca - cb;
-
-});
-
-showSuggestions(results);
+showSuggestions(data.features);
 
 }
 
 
-// mostrar sugestões
+// mostrar resultados
 function showSuggestions(results){
 
 suggestions.innerHTML="";
@@ -218,6 +124,7 @@ let country = place.properties.country || "";
 let label = `${name} ${city} ${country}`;
 
 let div = document.createElement("div");
+
 div.className="suggestion";
 div.innerText=label;
 
@@ -228,12 +135,10 @@ let lon = place.geometry.coordinates[0];
 
 map.setView([lat,lon],15);
 
-let marker = L.marker([lat,lon])
-.bindPopup(label);
-
-markers.addLayer(marker);
-
-marker.openPopup();
+L.marker([lat,lon])
+.addTo(map)
+.bindPopup(label)
+.openPopup();
 
 suggestions.innerHTML="";
 input.value=label;
