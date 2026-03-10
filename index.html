@@ -98,7 +98,6 @@ placeholder="Buscar endereço, rua, cidade ou CEP">
 
 document.addEventListener("DOMContentLoaded",function(){
 
-// mapa
 var map = L.map('map').setView([-15,-55],4);
 
 L.tileLayer(
@@ -121,12 +120,10 @@ L.marker(e.latlng)
 });
 
 
-// elementos
+// busca
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-
-// debounce
 function debounce(func,delay){
 
 let timer;
@@ -143,7 +140,6 @@ timer=setTimeout(func,delay);
 input.addEventListener("input",debounce(searchPlaces,250));
 
 
-// autocomplete rápido (Photon)
 async function searchPlaces(){
 
 let query = input.value;
@@ -167,7 +163,6 @@ showSuggestions(data.features);
 }
 
 
-// mostrar sugestões
 function showSuggestions(results){
 
 suggestions.innerHTML="";
@@ -210,7 +205,6 @@ suggestions.style.display="block";
 }
 
 
-// pegar detalhes completos (Nominatim)
 async function selectPlace(place){
 
 let lat = place.geometry.coordinates[1];
@@ -240,17 +234,16 @@ suggestions.style.display="none";
 
 
 
-////////////////////////////////////////////////////
-//////////// IGREJAS CATÓLICAS OTIMIZADO ///////////
-////////////////////////////////////////////////////
+//////////////////////////////////////////////
+//////// IGREJAS CATÓLICAS OTIMIZADO ////////
+//////////////////////////////////////////////
 
 
-// cluster
 var churchesLayer = L.markerClusterGroup();
 map.addLayer(churchesLayer);
 
 
-// ícone medieval 5x maior
+// ícone grande
 var churchIcon = L.icon({
 iconUrl:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Crucifixion_Giotto.jpg/256px-Crucifixion_Giotto.jpg",
 iconSize:[160,160],
@@ -259,27 +252,13 @@ popupAnchor:[0,-140]
 });
 
 
-// cache
+
 var loadedAreas = {};
 var requestRunning = false;
 var churchTimeout = null;
 
 
-// gerar chave de área (grid)
-function getAreaKey(bounds){
 
-var zoom = map.getZoom();
-
-var lat = bounds.getCenter().lat.toFixed(2);
-var lon = bounds.getCenter().lng.toFixed(2);
-
-return zoom+"_"+lat+"_"+lon;
-
-}
-
-
-
-// carregar igrejas
 function loadCatholicChurches(){
 
 if(map.getZoom() < 13) return;
@@ -292,52 +271,52 @@ churchTimeout = setTimeout(fetchChurches,1500);
 
 
 
-// buscar na API
 async function fetchChurches(){
 
 if(requestRunning) return;
 
-var bounds = map.getBounds();
+var center = map.getCenter();
 
-var key = getAreaKey(bounds);
+var radius = 3000;
+
+var key = center.lat.toFixed(2)+"_"+center.lng.toFixed(2);
 
 if(loadedAreas[key]) return;
 
-requestRunning = true;
-
 loadedAreas[key] = true;
 
-var south = bounds.getSouth();
-var west = bounds.getWest();
-var north = bounds.getNorth();
-var east = bounds.getEast();
+requestRunning = true;
 
 
 var query = `
-[out:json][timeout:25];
+[out:json][timeout:20];
 (
-node["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
-way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
+node["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](around:${radius},${center.lat},${center.lng});
+way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](around:${radius},${center.lat},${center.lng});
 );
 out center;
 `;
 
+
+var servers = [
+
+"https://overpass-api.de/api/interpreter",
+"https://overpass.kumi.systems/api/interpreter",
+"https://overpass.openstreetmap.ru/api/interpreter"
+
+];
+
+
+for(let server of servers){
+
 try{
 
-var res = await fetch(
-"https://overpass-api.de/api/interpreter",
-{
+var res = await fetch(server,{
 method:"POST",
 body:query
 });
 
-if(!res.ok){
-
-console.warn("Overpass limitou:",res.status);
-requestRunning=false;
-return;
-
-}
+if(!res.ok) continue;
 
 var data = await res.json();
 
@@ -355,18 +334,23 @@ churchesLayer.addLayer(marker);
 
 });
 
+requestRunning = false;
+return;
+
 }catch(e){
 
-console.warn("Erro Overpass",e);
+console.warn("Servidor Overpass falhou:",server);
 
 }
 
-requestRunning=false;
+}
+
+requestRunning = false;
 
 }
 
 
-// carregar ao mover mapa
+
 map.on("moveend",loadCatholicChurches);
 
 
