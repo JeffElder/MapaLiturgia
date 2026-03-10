@@ -77,7 +77,7 @@ background:#f5f5f5;
 
 <div id="searchBox">
 <div id="searchIcon">🔍</div>
-<input id="searchInput" placeholder="Buscar endereço ou CEP">
+<input id="searchInput" placeholder="Buscar endereço, lugar ou CEP">
 </div>
 
 <div id="suggestions"></div>
@@ -101,31 +101,9 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// geolocalização
-if(navigator.geolocation){
-
-navigator.geolocation.getCurrentPosition(function(pos){
-
-let lat = pos.coords.latitude;
-let lon = pos.coords.longitude;
-
-map.setView([lat,lon],13);
-
-L.marker([lat,lon])
-.addTo(map)
-.bindPopup("Você está aqui")
-.openPopup();
-
-});
-
-}
-
-
 // elementos
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
-
-let resultsList = [];
 
 
 // debounce
@@ -142,7 +120,7 @@ timer=setTimeout(func,delay);
 
 }
 
-input.addEventListener("input",debounce(searchPlaces,400));
+input.addEventListener("input",debounce(searchPlaces,250));
 
 
 // busca
@@ -150,7 +128,7 @@ async function searchPlaces(){
 
 let query = input.value;
 
-if(query.length < 3){
+if(query.length === 0){
 
 suggestions.style.display="none";
 return;
@@ -159,10 +137,10 @@ return;
 
 let bbox = map.getBounds();
 
-let url =
+let urlLocal =
 `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&viewbox=${bbox.getWest()},${bbox.getNorth()},${bbox.getEast()},${bbox.getSouth()}&bounded=1&q=${query}`;
 
-let res = await fetch(url);
+let res = await fetch(urlLocal);
 
 let data = await res.json();
 
@@ -170,16 +148,28 @@ let data = await res.json();
 // fallback global
 if(data.length === 0){
 
-url =
+let urlGlobal =
 `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&q=${query}`;
 
-res = await fetch(url);
+res = await fetch(urlGlobal);
 
 data = await res.json();
 
 }
 
-resultsList = data;
+
+// fallback final (garantia de sugestão)
+if(data.length === 0){
+
+data = [
+{
+display_name:`Buscar "${query}" no mapa`,
+lat: map.getCenter().lat,
+lon: map.getCenter().lng
+}
+];
+
+}
 
 showSuggestions(data);
 
@@ -191,13 +181,6 @@ function showSuggestions(results){
 
 suggestions.innerHTML="";
 
-if(results.length === 0){
-
-suggestions.style.display="none";
-return;
-
-}
-
 results.forEach(place=>{
 
 let label = place.display_name;
@@ -205,7 +188,7 @@ let label = place.display_name;
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText = label;
+div.innerText=label;
 
 div.onclick=function(){
 
@@ -222,11 +205,11 @@ suggestions.style.display="block";
 }
 
 
-// selecionar endereço
+// selecionar lugar
 function selectPlace(place){
 
-let lat = place.lat;
-let lon = place.lon;
+let lat = parseFloat(place.lat);
+let lon = parseFloat(place.lon);
 
 map.setView([lat,lon],17);
 
