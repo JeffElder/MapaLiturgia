@@ -88,7 +88,8 @@ background:#f5f5f5;
 
 document.addEventListener("DOMContentLoaded",function(){
 
-var map = L.map('map').setView([-23.5505,-46.6333],13);
+// mapa inicial
+var map = L.map('map').setView([-15,-55],4);
 
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -97,6 +98,32 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
+// variáveis
+let userLat = null;
+let userLon = null;
+
+
+// pegar localização do usuário
+if(navigator.geolocation){
+
+navigator.geolocation.getCurrentPosition(function(pos){
+
+userLat = pos.coords.latitude;
+userLon = pos.coords.longitude;
+
+map.setView([userLat,userLon],15);
+
+L.marker([userLat,userLon])
+.addTo(map)
+.bindPopup("Você está aqui")
+.openPopup();
+
+});
+
+}
+
+
+// elementos
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
@@ -145,8 +172,22 @@ return;
 
 let type = detectType(query);
 
+
+// priorizar área próxima ao usuário
+let viewbox = "";
+
+if(userLat && userLon){
+
+let delta = 0.5;
+
+viewbox =
+`&viewbox=${userLon-delta},${userLat+delta},${userLon+delta},${userLat-delta}&bounded=1`;
+
+}
+
+
 let url =
-`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=br&accept-language=pt-BR&q=${query}`;
+`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=br&accept-language=pt-BR${viewbox}&q=${query}`;
 
 let res = await fetch(url);
 let data = await res.json();
@@ -194,7 +235,7 @@ showSuggestions(filtered,type);
 }
 
 
-// montar label
+// label
 function buildLabel(place,type){
 
 let addr = place.address || {};
@@ -264,7 +305,7 @@ function selectPlace(place,label){
 let lat = place.lat;
 let lon = place.lon;
 
-map.setView([lat,lon],16);
+map.setView([lat,lon],17);
 
 L.marker([lat,lon])
 .addTo(map)
