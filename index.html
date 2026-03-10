@@ -60,7 +60,6 @@ display:none;
 padding:10px;
 cursor:pointer;
 border-bottom:1px solid #eee;
-font-size:14px;
 }
 
 .suggestion:hover,
@@ -77,8 +76,7 @@ background:#f0f0f0;
 
 <div id="searchBox">
 🔎
-<input id="searchInput"
-placeholder="Buscar rua, cidade ou CEP">
+<input id="searchInput" placeholder="Buscar rua, cidade ou CEP">
 </div>
 
 <div id="suggestions"></div>
@@ -129,9 +127,8 @@ L.marker(e.latlng)
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-let selectedIndex = -1;
-let resultsData = [];
-
+let resultsData=[];
+let selectedIndex=-1;
 
 
 //////////////////// DEBOUNCE //////////////////////
@@ -152,7 +149,7 @@ func.apply(this,args)
 
 }
 
-input.addEventListener("input",debounce(searchPlaces,300));
+input.addEventListener("input",debounce(searchPlaces,350));
 
 
 ////////////////////////////////////////////////////
@@ -161,9 +158,9 @@ input.addEventListener("input",debounce(searchPlaces,300));
 
 async function searchPlaces(){
 
-let query = input.value.trim();
+let query=input.value.trim();
 
-if(query.length < 3){
+if(query.length<3){
 
 suggestions.style.display="none";
 return;
@@ -172,25 +169,29 @@ return;
 
 try{
 
-let url =
-`https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+let url=`https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&countrycodes=br&q=${encodeURIComponent(query)}`;
 
-let res = await fetch(url);
+let res=await fetch(url,{
+headers:{
+"Accept":"application/json"
+}
+});
 
-let data = await res.json();
+if(!res.ok) throw new Error("Erro Nominatim");
 
-resultsData = data;
+let data=await res.json();
+
+resultsData=data;
 
 showSuggestions(data);
 
 }catch(err){
 
-console.error(err);
+console.log("Erro busca:",err);
 
 }
 
 }
-
 
 
 ////////////////////////////////////////////////////
@@ -200,25 +201,26 @@ console.error(err);
 function showSuggestions(results){
 
 suggestions.innerHTML="";
-selectedIndex = -1;
+selectedIndex=-1;
 
-if(results.length===0){
+if(!results.length){
 
 suggestions.style.display="none";
 return;
 
 }
 
-results.forEach((place,index)=>{
+results.forEach((place,i)=>{
 
-let div = document.createElement("div");
+let div=document.createElement("div");
 
 div.className="suggestion";
-div.innerText = place.display_name;
+
+div.innerText=place.display_name;
 
 div.onclick=function(){
 
-selectPlace(index);
+selectPlace(i);
 
 };
 
@@ -231,17 +233,16 @@ suggestions.style.display="block";
 }
 
 
-
 ////////////////////////////////////////////////////
 //////////////// SELECIONAR LOCAL //////////////////
 ////////////////////////////////////////////////////
 
 function selectPlace(index){
 
-let place = resultsData[index];
+let place=resultsData[index];
 
-let lat = place.lat;
-let lon = place.lon;
+let lat=place.lat;
+let lon=place.lon;
 
 map.setView([lat,lon],17);
 
@@ -250,12 +251,11 @@ L.marker([lat,lon])
 .bindPopup(place.display_name)
 .openPopup();
 
-input.value = place.display_name;
+input.value=place.display_name;
 
 suggestions.style.display="none";
 
 }
-
 
 
 ////////////////////////////////////////////////////
@@ -264,7 +264,7 @@ suggestions.style.display="none";
 
 input.addEventListener("keydown",function(e){
 
-let items = document.querySelectorAll(".suggestion");
+let items=document.querySelectorAll(".suggestion");
 
 if(!items.length) return;
 
@@ -307,7 +307,6 @@ items[selectedIndex].classList.add("active");
 });
 
 
-
 ////////////////////////////////////////////////////
 ////////// ESCONDER AO CLICAR FORA /////////////////
 ////////////////////////////////////////////////////
@@ -323,15 +322,13 @@ suggestions.style.display="none";
 });
 
 
-
 ////////////////////////////////////////////////////
 //////////// IGREJAS CATÓLICAS /////////////////////
 ////////////////////////////////////////////////////
 
-var churchesLayer = L.layerGroup().addTo(map);
+var churchesLayer=L.layerGroup().addTo(map);
 
-
-var churchIcon = L.icon({
+var churchIcon=L.icon({
 
 iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448339.png",
 iconSize:[32,32],
@@ -342,16 +339,18 @@ iconAnchor:[16,32]
 
 async function loadCatholicChurches(){
 
+try{
+
 churchesLayer.clearLayers();
 
-var bounds = map.getBounds();
+var bounds=map.getBounds();
 
-var south = bounds.getSouth();
-var west = bounds.getWest();
-var north = bounds.getNorth();
-var east = bounds.getEast();
+var south=bounds.getSouth();
+var west=bounds.getWest();
+var north=bounds.getNorth();
+var east=bounds.getEast();
 
-var query = `
+var query=`
 [out:json][timeout:25];
 (
 node["amenity"="place_of_worship"]["religion"="christian"]["denomination"="catholic"](${south},${west},${north},${east});
@@ -360,23 +359,30 @@ way["amenity"="place_of_worship"]["religion"="christian"]["denomination"="cathol
 out center;
 `;
 
-try{
-
-var res = await fetch(
+var res=await fetch(
 "https://overpass-api.de/api/interpreter",
 {
 method:"POST",
 body:query
 });
 
-var data = await res.json();
+if(!res.ok){
+
+console.log("Overpass limitou requisição");
+return;
+
+}
+
+var data=await res.json();
 
 data.elements.forEach(el=>{
 
-var lat = el.lat || el.center.lat;
-var lon = el.lon || el.center.lon;
+var lat=el.lat || el.center?.lat;
+var lon=el.lon || el.center?.lon;
 
-var name = el.tags?.name || "Igreja Católica";
+if(!lat || !lon) return;
+
+var name=el.tags?.name || "Igreja Católica";
 
 L.marker([lat,lon],{icon:churchIcon})
 .addTo(churchesLayer)
@@ -386,16 +392,19 @@ L.marker([lat,lon],{icon:churchIcon})
 
 }catch(err){
 
-console.error(err);
+console.log("Erro Overpass:",err);
 
 }
 
 }
 
 
-map.whenReady(loadCatholicChurches);
+// debounce no carregamento das igrejas
+const loadChurchesDebounced=debounce(loadCatholicChurches,2000);
 
-map.on("moveend",loadCatholicChurches);
+map.whenReady(loadChurchesDebounced);
+
+map.on("moveend",loadChurchesDebounced);
 
 
 });
