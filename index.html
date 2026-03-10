@@ -2,7 +2,9 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa com busca avançada</title>
+<title>Mapa com busca</title>
+
+<link rel="icon" href="data:,">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -11,7 +13,7 @@
 html, body{
 height:100%;
 margin:0;
-font-family:Arial;
+font-family:Arial, Helvetica, sans-serif;
 }
 
 #map{
@@ -19,55 +21,80 @@ height:100%;
 width:100%;
 }
 
-/* barra de busca */
+/* container busca */
 
 #searchContainer{
 position:absolute;
 top:15px;
 left:50%;
 transform:translateX(-50%);
-z-index:9999;
-width:320px;
+z-index:10000;
+width:340px;
 }
+
+/* caixa busca */
 
 #searchBox{
 display:flex;
 align-items:center;
 background:white;
-border-radius:8px;
-box-shadow:0 3px 10px rgba(0,0,0,0.3);
-padding:8px;
+border-radius:30px;
+box-shadow:0 4px 15px rgba(0,0,0,0.25);
+padding:8px 14px;
 }
 
+/* lupa */
+
 #searchIcon{
-margin-right:6px;
-font-size:16px;
+font-size:18px;
+margin-right:8px;
+color:#666;
 }
+
+/* input */
 
 #searchInput{
 border:none;
 outline:none;
 width:100%;
 font-size:14px;
+background:none;
 }
+
+/* sugestões */
 
 #suggestions{
 background:white;
-border-radius:0 0 8px 8px;
-box-shadow:0 4px 10px rgba(0,0,0,0.2);
-max-height:220px;
+border-radius:10px;
+margin-top:6px;
+box-shadow:0 4px 15px rgba(0,0,0,0.25);
+max-height:240px;
 overflow-y:auto;
+display:none;
 }
+
+/* item sugestão */
 
 .suggestion{
-padding:8px;
+padding:10px 14px;
 cursor:pointer;
+font-size:14px;
+border-bottom:1px solid #eee;
 }
 
-.suggestion:hover,
-.suggestion.active{
-background:#f0f0f0;
+.suggestion:last-child{
+border-bottom:none;
 }
+
+.suggestion:hover{
+background:#f5f5f5;
+}
+
+.suggestion.active{
+background:#e8f0fe;
+}
+
+/* responsivo */
 
 @media (max-width:600px){
 
@@ -85,8 +112,12 @@ width:90%;
 <div id="searchContainer">
 
 <div id="searchBox">
+
 <div id="searchIcon">🔍</div>
-<input id="searchInput" placeholder="Buscar endereço ou lugar">
+
+<input id="searchInput"
+placeholder="Buscar endereço ou lugar">
+
 </div>
 
 <div id="suggestions"></div>
@@ -112,6 +143,7 @@ attribution:'© OpenStreetMap contributors'
 
 
 // geolocalização
+
 if(navigator.geolocation){
 
 navigator.geolocation.getCurrentPosition(function(pos){
@@ -132,83 +164,107 @@ L.marker([lat,lon])
 
 
 // elementos
+
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-let currentSelection = -1;
 let resultsList = [];
+let selectedIndex = -1;
 
 
 // debounce
+
 function debounce(func,delay){
-let timeout;
+
+let timer;
+
 return function(){
-clearTimeout(timeout);
-timeout = setTimeout(func,delay);
+
+clearTimeout(timer);
+
+timer = setTimeout(func,delay);
+
 }
+
 }
 
 input.addEventListener("input", debounce(searchPlaces,300));
 
 
 // teclado
+
 input.addEventListener("keydown", function(e){
 
 if(e.key === "ArrowDown"){
-currentSelection++;
+
+selectedIndex++;
+
 updateSelection();
+
 }
 
 if(e.key === "ArrowUp"){
-currentSelection--;
+
+selectedIndex--;
+
 updateSelection();
+
 }
 
 if(e.key === "Enter"){
-if(currentSelection >=0){
-selectPlace(resultsList[currentSelection]);
+
+if(selectedIndex >=0){
+
+selectPlace(resultsList[selectedIndex]);
+
 }
+
 }
 
 });
 
 
 // busca
+
 async function searchPlaces(){
 
 let query = input.value;
 
 if(query.length < 3){
-suggestions.innerHTML="";
+
+suggestions.style.display="none";
+
 return;
+
 }
 
 let bbox = map.getBounds();
 
-let urlLocal =
-`https://photon.komoot.io/api/?q=${query}&limit=6&bbox=${bbox.getWest()},${bbox.getSouth()},${bbox.getEast()},${bbox.getNorth()}&lang=pt`;
+let url =
+`https://photon.komoot.io/api/?q=${query}&limit=6&bbox=${bbox.getWest()},${bbox.getSouth()},${bbox.getEast()},${bbox.getNorth()}`;
 
-let response = await fetch(urlLocal);
-let data = await response.json();
+let res = await fetch(url);
+
+let data = await res.json();
 
 let results = data.features;
 
 
 // fallback global
+
 if(results.length === 0){
 
-let urlGlobal =
-`https://photon.komoot.io/api/?q=${query}&limit=6&lang=pt`;
+res = await fetch(`https://photon.komoot.io/api/?q=${query}&limit=6`);
 
-response = await fetch(urlGlobal);
-data = await response.json();
+data = await res.json();
 
 results = data.features;
 
 }
 
 resultsList = results;
-currentSelection = -1;
+
+selectedIndex = -1;
 
 showSuggestions(results);
 
@@ -216,14 +272,25 @@ showSuggestions(results);
 
 
 // mostrar sugestões
+
 function showSuggestions(results){
 
 suggestions.innerHTML="";
 
+if(results.length === 0){
+
+suggestions.style.display="none";
+
+return;
+
+}
+
 results.forEach((place,index)=>{
 
 let name = place.properties.name || "";
+
 let city = place.properties.city || "";
+
 let country = place.properties.country || "";
 
 let label = `${name} ${city} ${country}`;
@@ -231,29 +298,35 @@ let label = `${name} ${city} ${country}`;
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText = label;
+
+div.innerText=label;
 
 div.onclick = function(){
+
 selectPlace(place);
+
 };
 
 suggestions.appendChild(div);
 
 });
 
+suggestions.style.display="block";
+
 }
 
 
 // atualizar seleção teclado
+
 function updateSelection(){
 
 let items = document.querySelectorAll(".suggestion");
 
-items.forEach(el => el.classList.remove("active"));
+items.forEach(el=>el.classList.remove("active"));
 
-if(currentSelection >=0 && currentSelection < items.length){
+if(selectedIndex >=0 && selectedIndex < items.length){
 
-items[currentSelection].classList.add("active");
+items[selectedIndex].classList.add("active");
 
 }
 
@@ -261,13 +334,17 @@ items[currentSelection].classList.add("active");
 
 
 // selecionar lugar
+
 function selectPlace(place){
 
 let lat = place.geometry.coordinates[1];
+
 let lon = place.geometry.coordinates[0];
 
 let name = place.properties.name || "";
+
 let city = place.properties.city || "";
+
 let country = place.properties.country || "";
 
 let label = `${name} ${city} ${country}`;
@@ -280,7 +357,8 @@ L.marker([lat,lon])
 .openPopup();
 
 input.value = label;
-suggestions.innerHTML="";
+
+suggestions.style.display="none";
 
 }
 
