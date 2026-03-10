@@ -9,6 +9,10 @@
 <style>
 #map {
 height: 100vh;
+margin: 0;
+}
+body{
+margin:0;
 }
 </style>
 </head>
@@ -21,12 +25,18 @@ height: 100vh;
 
 <script>
 
-// cria o mapa inicialmente sem posição definida
-var map = L.map('map');
+// cria o mapa com limite de zoom
+var map = L.map('map', {
+minZoom: 4,
+maxZoom: 19
+});
 
 // adiciona o mapa base
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-attribution: '© OpenStreetMap contributors'
+attribution: '© OpenStreetMap contributors',
+noWrap: true,
+minZoom: 4,
+maxZoom: 19
 }).addTo(map);
 
 // verifica geolocalização
@@ -37,7 +47,7 @@ navigator.geolocation.getCurrentPosition(function(position) {
 var lat = position.coords.latitude;
 var lon = position.coords.longitude;
 
-// centraliza o mapa
+// centraliza mapa na localização do usuário
 map.setView([lat, lon], 13);
 
 // adiciona marcador
@@ -47,11 +57,22 @@ L.marker([lat, lon])
 .openPopup();
 
 }, function() {
-alert("Não foi possível obter sua localização.");
+
+// caso não permita localização
+map.setView([-23.5505, -46.6333], 13);
+
+L.marker([-23.5505, -46.6333])
+.addTo(map)
+.bindPopup("Local padrão")
+.openPopup();
+
 });
 
 } else {
-alert("Geolocalização não é suportada pelo seu navegador.");
+
+// navegador não suporta geolocalização
+map.setView([-23.5505, -46.6333], 13);
+
 }
 
 </script>
