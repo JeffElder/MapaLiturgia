@@ -2,16 +2,16 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa com busca</title>
+<title>Mapa com busca avançada</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
 
 <style>
 
 html, body{
 height:100%;
 margin:0;
+font-family:Arial;
 }
 
 #map{
@@ -20,38 +20,61 @@ width:100%;
 }
 
 /* barra de busca */
-#searchBox{
+
+#searchContainer{
 position:absolute;
-top:10px;
+top:15px;
 left:50%;
 transform:translateX(-50%);
 z-index:9999;
+width:320px;
+}
+
+#searchBox{
+display:flex;
+align-items:center;
 background:white;
+border-radius:8px;
+box-shadow:0 3px 10px rgba(0,0,0,0.3);
 padding:8px;
-border-radius:6px;
-box-shadow:0 3px 8px rgba(0,0,0,0.3);
-width:280px;
+}
+
+#searchIcon{
+margin-right:6px;
+font-size:16px;
 }
 
 #searchInput{
+border:none;
+outline:none;
 width:100%;
-padding:6px;
+font-size:14px;
 }
 
 #suggestions{
 background:white;
-max-height:200px;
+border-radius:0 0 8px 8px;
+box-shadow:0 4px 10px rgba(0,0,0,0.2);
+max-height:220px;
 overflow-y:auto;
-border-top:1px solid #ccc;
 }
 
 .suggestion{
-padding:6px;
+padding:8px;
 cursor:pointer;
 }
 
-.suggestion:hover{
-background:#eee;
+.suggestion:hover,
+.suggestion.active{
+background:#f0f0f0;
+}
+
+@media (max-width:600px){
+
+#searchContainer{
+width:90%;
+}
+
 }
 
 </style>
@@ -59,10 +82,15 @@ background:#eee;
 
 <body>
 
-<!-- barra de busca -->
+<div id="searchContainer">
+
 <div id="searchBox">
-<input id="searchInput" placeholder="Buscar endereço...">
+<div id="searchIcon">🔍</div>
+<input id="searchInput" placeholder="Buscar endereço ou lugar">
+</div>
+
 <div id="suggestions"></div>
+
 </div>
 
 <div id="map"></div>
@@ -71,10 +99,11 @@ background:#eee;
 
 <script>
 
-// criar mapa
+document.addEventListener("DOMContentLoaded", function(){
+
+// mapa
 var map = L.map('map').setView([-23.5505,-46.6333],13);
 
-// tiles
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
@@ -82,14 +111,69 @@ attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 
-// elementos da busca
+// geolocalização
+if(navigator.geolocation){
+
+navigator.geolocation.getCurrentPosition(function(pos){
+
+let lat = pos.coords.latitude;
+let lon = pos.coords.longitude;
+
+map.setView([lat,lon],13);
+
+L.marker([lat,lon])
+.addTo(map)
+.bindPopup("Você está aqui")
+.openPopup();
+
+});
+
+}
+
+
+// elementos
 const input = document.getElementById("searchInput");
 const suggestions = document.getElementById("suggestions");
 
-input.addEventListener("input", searchPlaces);
+let currentSelection = -1;
+let resultsList = [];
 
 
-// busca simples
+// debounce
+function debounce(func,delay){
+let timeout;
+return function(){
+clearTimeout(timeout);
+timeout = setTimeout(func,delay);
+}
+}
+
+input.addEventListener("input", debounce(searchPlaces,300));
+
+
+// teclado
+input.addEventListener("keydown", function(e){
+
+if(e.key === "ArrowDown"){
+currentSelection++;
+updateSelection();
+}
+
+if(e.key === "ArrowUp"){
+currentSelection--;
+updateSelection();
+}
+
+if(e.key === "Enter"){
+if(currentSelection >=0){
+selectPlace(resultsList[currentSelection]);
+}
+}
+
+});
+
+
+// busca
 async function searchPlaces(){
 
 let query = input.value;
@@ -99,23 +183,44 @@ suggestions.innerHTML="";
 return;
 }
 
-let url =
-`https://photon.komoot.io/api/?q=${query}&limit=5`;
+let bbox = map.getBounds();
 
-let response = await fetch(url);
+let urlLocal =
+`https://photon.komoot.io/api/?q=${query}&limit=6&bbox=${bbox.getWest()},${bbox.getSouth()},${bbox.getEast()},${bbox.getNorth()}&lang=pt`;
+
+let response = await fetch(urlLocal);
 let data = await response.json();
 
-showSuggestions(data.features);
+let results = data.features;
+
+
+// fallback global
+if(results.length === 0){
+
+let urlGlobal =
+`https://photon.komoot.io/api/?q=${query}&limit=6&lang=pt`;
+
+response = await fetch(urlGlobal);
+data = await response.json();
+
+results = data.features;
+
+}
+
+resultsList = results;
+currentSelection = -1;
+
+showSuggestions(results);
 
 }
 
 
-// mostrar resultados
+// mostrar sugestões
 function showSuggestions(results){
 
 suggestions.innerHTML="";
 
-results.forEach(place=>{
+results.forEach((place,index)=>{
 
 let name = place.properties.name || "";
 let city = place.properties.city || "";
@@ -126,23 +231,10 @@ let label = `${name} ${city} ${country}`;
 let div = document.createElement("div");
 
 div.className="suggestion";
-div.innerText=label;
+div.innerText = label;
 
-div.onclick=function(){
-
-let lat = place.geometry.coordinates[1];
-let lon = place.geometry.coordinates[0];
-
-map.setView([lat,lon],15);
-
-L.marker([lat,lon])
-.addTo(map)
-.bindPopup(label)
-.openPopup();
-
-suggestions.innerHTML="";
-input.value=label;
-
+div.onclick = function(){
+selectPlace(place);
 };
 
 suggestions.appendChild(div);
@@ -151,6 +243,48 @@ suggestions.appendChild(div);
 
 }
 
+
+// atualizar seleção teclado
+function updateSelection(){
+
+let items = document.querySelectorAll(".suggestion");
+
+items.forEach(el => el.classList.remove("active"));
+
+if(currentSelection >=0 && currentSelection < items.length){
+
+items[currentSelection].classList.add("active");
+
+}
+
+}
+
+
+// selecionar lugar
+function selectPlace(place){
+
+let lat = place.geometry.coordinates[1];
+let lon = place.geometry.coordinates[0];
+
+let name = place.properties.name || "";
+let city = place.properties.city || "";
+let country = place.properties.country || "";
+
+let label = `${name} ${city} ${country}`;
+
+map.setView([lat,lon],15);
+
+L.marker([lat,lon])
+.addTo(map)
+.bindPopup(label)
+.openPopup();
+
+input.value = label;
+suggestions.innerHTML="";
+
+}
+
+});
 </script>
 
 </body>
