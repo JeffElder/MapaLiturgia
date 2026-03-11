@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Mapa com busca avançada</title>
+<title>Mapa Global de Igrejas</title>
 
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -60,8 +60,7 @@ cursor:pointer;
 border-bottom:1px solid #eee;
 }
 
-.suggestion:hover,
-.suggestion.active{
+.suggestion:hover{
 background:#f0f0f0;
 }
 
@@ -71,14 +70,11 @@ background:#f0f0f0;
 <body>
 
 <div id="searchContainer">
-
 <div id="searchBox">
 🔎
 <input id="searchInput" placeholder="Buscar rua, cidade ou CEP">
 </div>
-
 <div id="suggestions"></div>
-
 </div>
 
 <div id="map"></div>
@@ -87,13 +83,70 @@ background:#f0f0f0;
 
 <script>
 
+////////////////////////////////////////////////////
+// FUNÇÃO GLOBAL PARA SALVAR
+////////////////////////////////////////////////////
+
+window.saveChurch = async function(name, lat, lon, btn){
+
+if(!name){
+alert("Digite o nome da igreja");
+return;
+}
+
+btn.disabled=true;
+btn.innerText="Salvando...";
+
+try{
+
+let response = await fetch(
+"https://script.google.com/macros/s/AKfycbwd3oKBVk2fLOeh_0mfxuZf59u-LqOt8Xy3Sy3FgJVkxk0XrI2BSfFvnL9Q0S4ygr-W3w/exec",
+{
+method:"POST",
+body:JSON.stringify({
+name:name,
+lat:lat,
+lon:lon
+})
+});
+
+let data = await response.json();
+
+if(data.status==="ok"){
+
+alert("Igreja salva com sucesso!");
+
+btn.innerText="Salvo!";
+
+}else{
+
+alert("Erro ao salvar igreja");
+
+btn.disabled=false;
+btn.innerText="Salvar Igreja";
+
+}
+
+}catch(err){
+
+console.error(err);
+
+alert("Erro de rede");
+
+btn.disabled=false;
+btn.innerText="Salvar Igreja";
+
+}
+
+}
+
+////////////////////////////////////////////////////
+// INICIAR MAPA
+////////////////////////////////////////////////////
+
 document.addEventListener("DOMContentLoaded",function(){
 
-////////////////////////////////////////////////////
-//////////////////// MAPA //////////////////////////
-////////////////////////////////////////////////////
-
-var map = L.map('map').setView([-15,-55],4);
+var map = L.map('map').setView([0,0],2);
 
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -102,7 +155,7 @@ attribution:'© OpenStreetMap'
 }).addTo(map);
 
 ////////////////////////////////////////////////////
-//////////////////// ÍCONES ////////////////////////
+// ICONES
 ////////////////////////////////////////////////////
 
 var personIcon = L.icon({
@@ -120,7 +173,7 @@ popupAnchor:[0,-28]
 });
 
 ////////////////////////////////////////////////////
-//////////////// LOCALIZAÇÃO ///////////////////////
+// LOCALIZAÇÃO
 ////////////////////////////////////////////////////
 
 map.locate({setView:true,maxZoom:16});
@@ -135,30 +188,55 @@ L.marker(e.latlng,{icon:personIcon})
 });
 
 ////////////////////////////////////////////////////
-//////////////////// BUSCA /////////////////////////
+// DUPLO CLIQUE PARA ADICIONAR IGREJA
+////////////////////////////////////////////////////
+
+map.on("dblclick",function(e){
+
+let lat = e.latlng.lat;
+let lon = e.latlng.lng;
+
+let marker = L.marker([lat,lon],{
+icon:crossIcon,
+draggable:true
+}).addTo(map);
+
+marker.bindPopup(`
+
+<b>Adicionar Igreja</b><br><br>
+
+<input id="churchName" placeholder="Nome da igreja"><br><br>
+
+Latitude: ${lat.toFixed(6)}<br>
+Longitude: ${lon.toFixed(6)}<br><br>
+
+<button onclick="saveChurch(
+document.getElementById('churchName').value,
+${lat},
+${lon},
+this)">
+Salvar Igreja
+</button>
+
+`).openPopup();
+
+});
+
+////////////////////////////////////////////////////
+// BUSCA GLOBAL
 ////////////////////////////////////////////////////
 
 const input=document.getElementById("searchInput");
 const suggestions=document.getElementById("suggestions");
 
 let resultsData=[];
-let selectedIndex=-1;
-let searchMarker=null;
 
 function debounce(func,delay){
-
 let timer;
-
 return function(...args){
-
 clearTimeout(timer);
-
-timer=setTimeout(()=>{
-func.apply(this,args)
-},delay);
-
+timer=setTimeout(()=>{func.apply(this,args)},delay);
 }
-
 }
 
 input.addEventListener("input",debounce(searchPlaces,350));
@@ -172,9 +250,10 @@ suggestions.style.display="none";
 return;
 }
 
-let url=`https://nominatim.openstreetmap.org/search?format=json&limit=8&countrycodes=br&q=${encodeURIComponent(query)}`;
+let url=`https://nominatim.openstreetmap.org/search?format=json&limit=8&q=${encodeURIComponent(query)}`;
 
 let res=await fetch(url);
+
 let data=await res.json();
 
 resultsData=data;
@@ -186,17 +265,16 @@ showSuggestions(data);
 function showSuggestions(results){
 
 suggestions.innerHTML="";
-selectedIndex=-1;
 
 results.forEach((place,i)=>{
 
 let div=document.createElement("div");
+
 div.className="suggestion";
+
 div.innerText=place.display_name;
 
-div.onclick=function(){
-selectPlace(i);
-};
+div.onclick=function(){selectPlace(i);};
 
 suggestions.appendChild(div);
 
@@ -215,27 +293,34 @@ let lon=parseFloat(place.lon);
 
 map.setView([lat,lon],17);
 
-if(searchMarker){
-map.removeLayer(searchMarker);
-}
-
-searchMarker = L.marker([lat,lon],{icon:personIcon})
+L.marker([lat,lon],{
+icon:crossIcon,
+draggable:true
+})
 .addTo(map)
-.bindPopup(place.display_name)
+.bindPopup(`
+<b>${place.display_name}</b><br>
+<button onclick="saveChurch('${place.display_name}',${lat},${lon},this)">
+Salvar Igreja
+</button>
+`)
 .openPopup();
 
-input.value=place.display_name;
 suggestions.style.display="none";
+
+input.value=place.display_name;
 
 }
 
 ////////////////////////////////////////////////////
-//////////// IGREJAS DO ARQUIVO GEOJSON ////////////
+// CARREGAR IGREJAS EXISTENTES
 ////////////////////////////////////////////////////
 
 fetch("exportchurches.geojson")
-.then(res => res.json())
-.then(data => {
+
+.then(res=>res.json())
+
+.then(data=>{
 
 L.geoJSON(data,{
 
@@ -247,7 +332,7 @@ return L.marker(latlng,{icon:crossIcon});
 
 onEachFeature:function(feature,layer){
 
-let nome = feature.properties.name || "Igreja Católica";
+let nome = feature.properties.name || "Igreja";
 
 layer.bindPopup(nome);
 
@@ -256,7 +341,8 @@ layer.bindPopup(nome);
 }).addTo(map);
 
 })
-.catch(err => console.log("Erro ao carregar igrejas:",err));
+
+.catch(err=>console.log("Erro ao carregar igrejas:",err));
 
 });
 
