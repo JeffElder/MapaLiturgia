@@ -102,24 +102,22 @@ btn.innerText="Salvando...";
 
 try{
 
-const base = "https://script.google.com/macros/s/AKfycbzA7ozFy0lFhHPZuus-ZGBzQ7NmzjG4wvpLPnGuq97TWHOs7S2dLxOlBhLAW4yYe6O8/exec";
+const base="https://script.google.com/macros/s/AKfycbzA7ozFy0lFhHPZuus-ZGBzQ7NmzjG4wvpLPnGuq97TWHOs7S2dLxOlBhLAW4yYe6O8/exec";
 
-const url =
-base +
-"?name=" + encodeURIComponent(name) +
-"&lat=" + encodeURIComponent(lat) +
-"&lon=" + encodeURIComponent(lon);
+const url=
+base+
+"?name="+encodeURIComponent(name)+
+"&lat="+encodeURIComponent(lat)+
+"&lon="+encodeURIComponent(lon);
 
 await fetch(url);
 
 alert("Igreja salva com sucesso!");
-
 btn.innerText="Salvo!";
 
 }catch(err){
 
 console.error(err);
-
 alert("Erro ao salvar igreja");
 
 btn.disabled=false;
@@ -135,7 +133,7 @@ btn.innerText="Salvar Igreja";
 
 document.addEventListener("DOMContentLoaded",function(){
 
-var map = L.map('map').setView([0,0],2);
+var map=L.map('map').setView([0,0],2);
 
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -147,23 +145,21 @@ attribution:'© OpenStreetMap'
 // ICONES
 ////////////////////////////////////////////////////
 
-var personIcon = L.icon({
+var personIcon=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/15942/15942135.png",
 iconSize:[35,35],
 iconAnchor:[17,35],
 popupAnchor:[0,-30]
 });
 
-// ícone normal
-var crossIcon = L.icon({
+var crossIcon=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
 iconSize:[32,32],
 iconAnchor:[16,32],
 popupAnchor:[0,-28]
 });
 
-// ícone ao passar o mouse
-var crossIconHover = L.icon({
+var crossIconHover=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
 iconSize:[50,50],
 iconAnchor:[25,50],
@@ -186,141 +182,31 @@ L.marker(e.latlng,{icon:personIcon})
 });
 
 ////////////////////////////////////////////////////
-// DUPLO CLIQUE PARA ADICIONAR IGREJA
+// FUNÇÃO PARA PEGAR ENDEREÇO PELAS COORDENADAS
 ////////////////////////////////////////////////////
 
-map.on("dblclick",function(e){
+async function getAddress(lat,lon){
 
-let lat = e.latlng.lat;
-let lon = e.latlng.lng;
+try{
 
-let marker = L.marker([lat,lon],{
-icon:crossIcon,
-draggable:true
-}).addTo(map);
-
-let popup = document.createElement("div");
-
-popup.innerHTML = `
-<b>Adicionar Igreja</b><br><br>
-<input placeholder="Nome da igreja"><br><br>
-Latitude: ${lat.toFixed(6)}<br>
-Longitude: ${lon.toFixed(6)}<br><br>
-<button>Salvar Igreja</button>
-`;
-
-let input = popup.querySelector("input");
-let button = popup.querySelector("button");
-
-button.onclick = function(){
-saveChurch(input.value,lat,lon,button);
-}
-
-marker.bindPopup(popup).openPopup();
-
-});
-
-////////////////////////////////////////////////////
-// BUSCA GLOBAL
-////////////////////////////////////////////////////
-
-const input=document.getElementById("searchInput");
-const suggestions=document.getElementById("suggestions");
-
-let resultsData=[];
-
-function debounce(func,delay){
-let timer;
-return function(...args){
-clearTimeout(timer);
-timer=setTimeout(()=>{func.apply(this,args)},delay);
-}
-}
-
-input.addEventListener("input",debounce(searchPlaces,350));
-
-async function searchPlaces(){
-
-let query=input.value.trim();
-
-if(query.length<3){
-suggestions.style.display="none";
-return;
-}
-
-let url=`https://nominatim.openstreetmap.org/search?format=json&limit=8&q=${encodeURIComponent(query)}`;
+let url=`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
 
 let res=await fetch(url);
 
 let data=await res.json();
 
-resultsData=data;
+return data.display_name || "Endereço não encontrado";
 
-showSuggestions(data);
+}catch(e){
 
-}
-
-function showSuggestions(results){
-
-suggestions.innerHTML="";
-
-results.forEach((place,i)=>{
-
-let div=document.createElement("div");
-
-div.className="suggestion";
-
-div.innerText=place.display_name;
-
-div.onclick=function(){selectPlace(i);};
-
-suggestions.appendChild(div);
-
-});
-
-suggestions.style.display="block";
+return "Endereço não encontrado";
 
 }
-
-function selectPlace(index){
-
-let place=resultsData[index];
-
-let lat=parseFloat(place.lat);
-let lon=parseFloat(place.lon);
-
-map.setView([lat,lon],17);
-
-let marker = L.marker([lat,lon],{
-icon:crossIcon,
-draggable:true
-}).addTo(map);
-
-let popup = document.createElement("div");
-
-popup.innerHTML=`
-<b>${place.display_name}</b><br><br>
-<input placeholder="Nome da igreja"><br><br>
-<button>Salvar Igreja</button>
-`;
-
-let input = popup.querySelector("input");
-let button = popup.querySelector("button");
-
-button.onclick=function(){
-saveChurch(input.value,lat,lon,button);
-}
-
-marker.bindPopup(popup).openPopup();
-
-suggestions.style.display="none";
-
-input.value=place.display_name;
 
 }
 
 ////////////////////////////////////////////////////
-// CARREGAR IGREJAS EXISTENTES
+// CARREGAR IGREJAS
 ////////////////////////////////////////////////////
 
 fetch("exportchurches.geojson")
@@ -337,28 +223,35 @@ return L.marker(latlng,{icon:crossIcon});
 
 onEachFeature:function(feature,layer){
 
-let nome = feature.properties.name || "Igreja";
-let endereco = feature.properties.address || "Endereço não informado";
+let nome=feature.properties.name || "Igreja";
 
-layer.bindTooltip(
-"<b>"+nome+"</b><br>"+endereco,
-{
+let tooltip=L.tooltip({
 direction:"top",
 offset:[0,-20],
 opacity:0.9
-}
-);
+}).setContent("<b>"+nome+"</b><br>Carregando endereço...");
 
-// hover aumenta o ícone
-layer.on("mouseover",function(){
+layer.bindTooltip(tooltip);
+
+layer.on("mouseover",async function(){
+
 layer.setIcon(crossIconHover);
 layer.openTooltip();
+
+let lat=layer.getLatLng().lat;
+let lon=layer.getLatLng().lng;
+
+let endereco=await getAddress(lat,lon);
+
+tooltip.setContent("<b>"+nome+"</b><br>"+endereco);
+
 });
 
-// volta ao normal
 layer.on("mouseout",function(){
+
 layer.setIcon(crossIcon);
 layer.closeTooltip();
+
 });
 
 }
