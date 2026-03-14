@@ -97,10 +97,6 @@ padding:6px 8px;
 
 <script>
 
-////////////////////////////////////////////////////
-// SALVAR IGREJA
-////////////////////////////////////////////////////
-
 window.saveChurch = async function(name, lat, lon, btn){
 
 if(!name){
@@ -138,10 +134,6 @@ btn.innerText="Salvar Igreja";
 
 }
 
-////////////////////////////////////////////////////
-// INICIAR MAPA
-////////////////////////////////////////////////////
-
 document.addEventListener("DOMContentLoaded",function(){
 
 var map=L.map('map').setView([0,0],2);
@@ -159,22 +151,19 @@ attribution:'© OpenStreetMap'
 var personIcon=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/15942/15942135.png",
 iconSize:[35,35],
-iconAnchor:[17,35],
-popupAnchor:[0,-30]
+iconAnchor:[17,35]
 });
 
 var crossIcon=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
 iconSize:[32,32],
-iconAnchor:[16,32],
-popupAnchor:[0,-28]
+iconAnchor:[16,32]
 });
 
 var crossIconHover=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
 iconSize:[50,50],
-iconAnchor:[25,50],
-popupAnchor:[0,-40]
+iconAnchor:[25,50]
 });
 
 ////////////////////////////////////////////////////
@@ -193,7 +182,7 @@ L.marker(e.latlng,{icon:personIcon})
 });
 
 ////////////////////////////////////////////////////
-// FUNÇÃO PARA PEGAR ENDEREÇO
+// FUNÇÃO PARA PEGAR ENDEREÇO FILTRADO
 ////////////////////////////////////////////////////
 
 async function getAddress(lat,lon){
@@ -203,10 +192,19 @@ try{
 let url=`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
 
 let res=await fetch(url);
-
 let data=await res.json();
 
-return data.display_name || "Endereço não encontrado";
+let addr=data.address;
+
+let rua=addr.road || "";
+let numero=addr.house_number || "";
+let cidade=addr.city || addr.town || addr.village || "";
+let estado=addr.state || "";
+
+return `
+${rua} ${numero}<br>
+${cidade} - ${estado}
+`;
 
 }catch(e){
 
@@ -241,7 +239,7 @@ direction:"top",
 offset:[0,-20],
 opacity:0.95,
 className:"churchTooltip"
-}).setContent("<b>"+nome+"</b><br>Carregando endereço...");
+}).setContent("<b>"+nome+"</b>");
 
 layer.bindTooltip(tooltip);
 
@@ -255,7 +253,9 @@ let lon=layer.getLatLng().lng;
 
 let endereco=await getAddress(lat,lon);
 
-tooltip.setContent("<b>"+nome+"</b><br>"+endereco);
+tooltip.setContent(
+"<b>"+nome+"</b><br>"+endereco
+);
 
 });
 
