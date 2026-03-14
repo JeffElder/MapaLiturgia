@@ -84,7 +84,7 @@ background:#f0f0f0;
 <script>
 
 ////////////////////////////////////////////////////
-// FUNÇÃO GLOBAL PARA SALVAR (CORS SAFE)
+// FUNÇÃO GLOBAL PARA SALVAR (SEM ERRO CORS)
 ////////////////////////////////////////////////////
 
 window.saveChurch = async function(name, lat, lon, btn){
@@ -99,26 +99,21 @@ btn.innerText="Salvando...";
 
 try{
 
-const url =
-"https://script.google.com/macros/s/AKfycbywOgC3mS3EhFiLEDfLokC4MLyGO6HQuxUBSmjJTNIkmBsTo5_Y998j4hBmzmX0c0WtcA/exec"
-+ "?name=" + encodeURIComponent(name)
-+ "&lat=" + lat
-+ "&lon=" + lon;
+const url="https://script.google.com/macros/s/AKfycbywOgC3mS3EhFiLEDfLokC4MLyGO6HQuxUBSmjJTNIkmBsTo5_Y998j4hBmzmX0c0WtcA/exec";
 
 let response = await fetch(url,{
-method:"GET",
-mode:"cors"
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+name:name,
+lat:lat,
+lon:lon
+})
 });
 
-let text = await response.text();
-
-let data;
-
-try{
-data = JSON.parse(text);
-}catch{
-data = {status:"ok"};
-}
+let data = await response.json();
 
 if(data.status==="ok"){
 
@@ -128,7 +123,6 @@ btn.innerText="Salvo!";
 }else{
 
 alert("Erro ao salvar igreja");
-
 btn.disabled=false;
 btn.innerText="Salvar Igreja";
 
