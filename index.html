@@ -70,11 +70,14 @@ background:#f0f0f0;
 <body>
 
 <div id="searchContainer">
+
 <div id="searchBox">
 🔎
 <input id="searchInput" placeholder="Buscar rua, cidade ou CEP">
 </div>
+
 <div id="suggestions"></div>
+
 </div>
 
 <div id="map"></div>
@@ -84,7 +87,7 @@ background:#f0f0f0;
 <script>
 
 ////////////////////////////////////////////////////
-// FUNÇÃO GLOBAL PARA SALVAR (SEM ERRO CORS)
+// FUNÇÃO GLOBAL PARA SALVAR (CORRIGIDA)
 ////////////////////////////////////////////////////
 
 window.saveChurch = async function(name, lat, lon, btn){
@@ -101,38 +104,25 @@ try{
 
 const url="https://script.google.com/macros/s/AKfycbywOgC3mS3EhFiLEDfLokC4MLyGO6HQuxUBSmjJTNIkmBsTo5_Y998j4hBmzmX0c0WtcA/exec";
 
-let response = await fetch(url,{
+let form = new FormData();
+form.append("name",name);
+form.append("lat",lat);
+form.append("lon",lon);
+
+await fetch(url,{
 method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-name:name,
-lat:lat,
-lon:lon
-})
+body:form
 });
 
-let data = await response.json();
-
-if(data.status==="ok"){
-
 alert("Igreja salva com sucesso!");
+
 btn.innerText="Salvo!";
-
-}else{
-
-alert("Erro ao salvar igreja");
-btn.disabled=false;
-btn.innerText="Salvar Igreja";
-
-}
 
 }catch(err){
 
 console.error(err);
 
-alert("Erro de rede ou CORS");
+alert("Erro ao salvar igreja");
 
 btn.disabled=false;
 btn.innerText="Salvar Igreja";
@@ -202,24 +192,24 @@ icon:crossIcon,
 draggable:true
 }).addTo(map);
 
-marker.bindPopup(`
+let popup = document.createElement("div");
 
+popup.innerHTML = `
 <b>Adicionar Igreja</b><br><br>
-
-<input id="churchName" placeholder="Nome da igreja"><br><br>
-
+<input placeholder="Nome da igreja"><br><br>
 Latitude: ${lat.toFixed(6)}<br>
 Longitude: ${lon.toFixed(6)}<br><br>
+<button>Salvar Igreja</button>
+`;
 
-<button onclick="saveChurch(
-document.getElementById('churchName').value,
-${lat},
-${lon},
-this)">
-Salvar Igreja
-</button>
+let input = popup.querySelector("input");
+let button = popup.querySelector("button");
 
-`).openPopup();
+button.onclick = function(){
+saveChurch(input.value,lat,lon,button);
+}
+
+marker.bindPopup(popup).openPopup();
 
 });
 
@@ -294,18 +284,27 @@ let lon=parseFloat(place.lon);
 
 map.setView([lat,lon],17);
 
-L.marker([lat,lon],{
+let marker = L.marker([lat,lon],{
 icon:crossIcon,
 draggable:true
-})
-.addTo(map)
-.bindPopup(`
-<b>${place.display_name}</b><br>
-<button onclick="saveChurch('${place.display_name}',${lat},${lon},this)">
-Salvar Igreja
-</button>
-`)
-.openPopup();
+}).addTo(map);
+
+let popup = document.createElement("div");
+
+popup.innerHTML=`
+<b>${place.display_name}</b><br><br>
+<input placeholder="Nome da igreja"><br><br>
+<button>Salvar Igreja</button>
+`;
+
+let input = popup.querySelector("input");
+let button = popup.querySelector("button");
+
+button.onclick=function(){
+saveChurch(input.value,lat,lon,button);
+}
+
+marker.bindPopup(popup).openPopup();
 
 suggestions.style.display="none";
 
