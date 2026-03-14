@@ -87,7 +87,7 @@ background:#f0f0f0;
 <script>
 
 ////////////////////////////////////////////////////
-// SALVAR IGREJA (SEM CORS - USANDO GET)
+// SALVAR IGREJA
 ////////////////////////////////////////////////////
 
 window.saveChurch = async function(name, lat, lon, btn){
@@ -103,6 +103,7 @@ btn.innerText="Salvando...";
 try{
 
 const base = "https://script.google.com/macros/s/AKfycbzA7ozFy0lFhHPZuus-ZGBzQ7NmzjG4wvpLPnGuq97TWHOs7S2dLxOlBhLAW4yYe6O8/exec";
+
 const url =
 base +
 "?name=" + encodeURIComponent(name) +
@@ -153,11 +154,20 @@ iconAnchor:[17,35],
 popupAnchor:[0,-30]
 });
 
+// ícone normal
 var crossIcon = L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
 iconSize:[32,32],
 iconAnchor:[16,32],
 popupAnchor:[0,-28]
+});
+
+// ícone ao passar o mouse
+var crossIconHover = L.icon({
+iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
+iconSize:[50,50],
+iconAnchor:[25,50],
+popupAnchor:[0,-40]
 });
 
 ////////////////////////////////////////////////////
@@ -328,8 +338,28 @@ return L.marker(latlng,{icon:crossIcon});
 onEachFeature:function(feature,layer){
 
 let nome = feature.properties.name || "Igreja";
+let endereco = feature.properties.address || "Endereço não informado";
 
-layer.bindPopup(nome);
+layer.bindTooltip(
+"<b>"+nome+"</b><br>"+endereco,
+{
+direction:"top",
+offset:[0,-20],
+opacity:0.9
+}
+);
+
+// hover aumenta o ícone
+layer.on("mouseover",function(){
+layer.setIcon(crossIconHover);
+layer.openTooltip();
+});
+
+// volta ao normal
+layer.on("mouseout",function(){
+layer.setIcon(crossIcon);
+layer.closeTooltip();
+});
 
 }
 
