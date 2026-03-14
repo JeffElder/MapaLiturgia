@@ -64,6 +64,17 @@ border-bottom:1px solid #eee;
 background:#f0f0f0;
 }
 
+/* TOOLTIP COMPACTO */
+
+.leaflet-tooltip.churchTooltip{
+max-width:220px;
+white-space:normal;
+word-wrap:break-word;
+line-height:1.3;
+font-size:13px;
+padding:6px 8px;
+}
+
 </style>
 </head>
 
@@ -182,7 +193,7 @@ L.marker(e.latlng,{icon:personIcon})
 });
 
 ////////////////////////////////////////////////////
-// FUNÇÃO PARA PEGAR ENDEREÇO PELAS COORDENADAS
+// FUNÇÃO PARA PEGAR ENDEREÇO
 ////////////////////////////////////////////////////
 
 async function getAddress(lat,lon){
@@ -228,7 +239,8 @@ let nome=feature.properties.name || "Igreja";
 let tooltip=L.tooltip({
 direction:"top",
 offset:[0,-20],
-opacity:0.9
+opacity:0.95,
+className:"churchTooltip"
 }).setContent("<b>"+nome+"</b><br>Carregando endereço...");
 
 layer.bindTooltip(tooltip);
