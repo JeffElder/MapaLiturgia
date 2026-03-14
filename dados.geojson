@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "nome": "Igreja do bom Jesus"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -49.2736172676086,
+          -25.4376262256199
+        ]
+      }
+    }
+  ]
+}
