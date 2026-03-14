@@ -87,7 +87,7 @@ background:#f0f0f0;
 <script>
 
 ////////////////////////////////////////////////////
-// FUNÇÃO GLOBAL PARA SALVAR
+// SALVAR IGREJA (SEM CORS - USANDO GET)
 ////////////////////////////////////////////////////
 
 window.saveChurch = async function(name, lat, lon, btn){
@@ -102,18 +102,16 @@ btn.innerText="Salvando...";
 
 try{
 
-const url="https://script.google.com/macros/s/AKfycbxC9WZswwAxS0SsUUuV2Epe3b-1XcV1dF27oSr7fyafKHw_281Se7jG9Gy0aZ7a293gow/exec";
+const base =
+"https://script.google.com/macros/s/AKfycbxC9WZswwAxS0SsUUuV2Epe3b-1XcV1dF27oSr7fyafKHw_281Se7jG9Gy0aZ7a293gow/exec";
 
-let form = new FormData();
-form.append("name",name);
-form.append("lat",lat);
-form.append("lon",lon);
+const url =
+base +
+"?name=" + encodeURIComponent(name) +
+"&lat=" + encodeURIComponent(lat) +
+"&lon=" + encodeURIComponent(lon);
 
-await fetch(url,{
-method:"POST",
-mode:"no-cors",
-body:form
-});
+await fetch(url);
 
 alert("Igreja salva com sucesso!");
 
