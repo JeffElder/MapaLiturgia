@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Excel para GeoJSON</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+font-family: Arial;
+padding:40px;
+background:#f4f4f4;
+}
+
+.container{
+background:white;
+padding:20px;
+border-radius:8px;
+max-width:600px;
+margin:auto;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px 20px;
+margin-top:10px;
+cursor:pointer;
+}
+
+pre{
+background:#eee;
+padding:10px;
+overflow:auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Converter Excel para GeoJSON</h2>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls">
+
+<br>
+
+<button onclick="converter()">Converter</button>
+
+<br><br>
+
+<button onclick="baixarGeoJSON()">Baixar GeoJSON</button>
+
+<h3>Preview</h3>
+
+<pre id="preview"></pre>
+
+</div>
+
+<script>
+
+let geojsonGerado = null;
+
+/* corrige coordenadas com vários pontos */
+function corrigirNumero(valor){
+
+if(!valor) return null;
+
+valor = valor.toString();
+
+/* remove todos os pontos */
+valor = valor.replace(/\./g,'');
+
+/* reinserir ponto decimal depois dos 2 primeiros números */
+let negativo = valor.startsWith('-');
+
+if(negativo){
+valor = valor.substring(1);
+}
+
+let inteiro = valor.substring(0,2);
+let decimal = valor.substring(2);
+
+let numero = parseFloat(inteiro + "." + decimal);
+
+if(negativo) numero = -numero;
+
+return numero;
+
+}
+
+function converter(){
+
+const file = document.getElementById('fileInput').files[0];
+
+if(!file){
+alert("Selecione um arquivo Excel");
+return;
+}
+
+const reader = new FileReader();
+
+reader.onload = function(e){
+
+const data = new Uint8Array(e.target.result);
+
+const workbook = XLSX.read(data, {type:'array'});
+
+const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+const json = XLSX.utils.sheet_to_json(sheet);
+
+const features = json.map(row => {
+
+const lat = corrigirNumero(row.Latitude);
+const lon = corrigirNumero(row.Longitude);
+
+return {
+type:"Feature",
+properties:{
+nome: row.Nome
+},
+geometry:{
+type:"Point",
+coordinates:[lon,lat]
+}
+}
+
+});
+
+geojsonGerado = {
+type:"FeatureCollection",
+features:features
+};
+
+document.getElementById("preview").textContent =
+JSON.stringify(geojsonGerado,null,2);
+
+};
+
+reader.readAsArrayBuffer(file);
+
+}
+
+function baixarGeoJSON(){
+
+if(!geojsonGerado){
+alert("Converta primeiro!");
+return;
+}
+
+const blob = new Blob(
+[JSON.stringify(geojsonGerado,null,2)],
+{type:"application/json"}
+);
+
+const url = URL.createObjectURL(blob);
+
+const a = document.createElement("a");
+a.href = url;
+a.download = "dados.geojson";
+a.click();
+
+}
+
+</script>
+
+</body>
+</html>
