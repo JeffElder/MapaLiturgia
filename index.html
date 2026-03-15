@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <title>Mapa Global de Igrejas</title>
 
-<link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
@@ -19,52 +18,7 @@ font-family:Arial;
 height:100%;
 }
 
-#searchContainer{
-position:absolute;
-top:15px;
-left:50%;
-transform:translateX(-50%);
-z-index:10000;
-width:380px;
-}
-
-#searchBox{
-display:flex;
-align-items:center;
-background:white;
-border-radius:30px;
-box-shadow:0 4px 15px rgba(0,0,0,0.25);
-padding:10px;
-}
-
-#searchInput{
-border:none;
-outline:none;
-width:100%;
-font-size:15px;
-}
-
-#suggestions{
-background:white;
-border-radius:10px;
-margin-top:6px;
-box-shadow:0 4px 15px rgba(0,0,0,0.25);
-max-height:300px;
-overflow-y:auto;
-display:none;
-}
-
-.suggestion{
-padding:10px;
-cursor:pointer;
-border-bottom:1px solid #eee;
-}
-
-.suggestion:hover{
-background:#f0f0f0;
-}
-
-/* TOOLTIP COMPACTO */
+/* tooltip compacto */
 
 .leaflet-tooltip.churchTooltip{
 max-width:220px;
@@ -80,63 +34,15 @@ padding:6px 8px;
 
 <body>
 
-<div id="searchContainer">
-
-<div id="searchBox">
-🔎
-<input id="searchInput" placeholder="Buscar rua, cidade ou CEP">
-</div>
-
-<div id="suggestions"></div>
-
-</div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 
-window.saveChurch = async function(name, lat, lon, btn){
-
-if(!name){
-alert("Digite o nome da igreja");
-return;
-}
-
-btn.disabled=true;
-btn.innerText="Salvando...";
-
-try{
-
-const base="https://script.google.com/macros/s/AKfycbzA7ozFy0lFhHPZuus-ZGBzQ7NmzjG4wvpLPnGuq97TWHOs7S2dLxOlBhLAW4yYe6O8/exec";
-
-const url=
-base+
-"?name="+encodeURIComponent(name)+
-"&lat="+encodeURIComponent(lat)+
-"&lon="+encodeURIComponent(lon);
-
-await fetch(url);
-
-alert("Igreja salva com sucesso!");
-btn.innerText="Salvo!";
-
-}catch(err){
-
-console.error(err);
-alert("Erro ao salvar igreja");
-
-btn.disabled=false;
-btn.innerText="Salvar Igreja";
-
-}
-
-}
-
 document.addEventListener("DOMContentLoaded",function(){
 
-var map=L.map('map').setView([0,0],2);
+var map=L.map('map').setView([-25.4376,-49.2736],13);
 
 L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -147,12 +53,6 @@ attribution:'© OpenStreetMap'
 ////////////////////////////////////////////////////
 // ICONES
 ////////////////////////////////////////////////////
-
-var personIcon=L.icon({
-iconUrl:"https://cdn-icons-png.flaticon.com/512/15942/15942135.png",
-iconSize:[35,35],
-iconAnchor:[17,35]
-});
 
 var crossIcon=L.icon({
 iconUrl:"https://cdn-icons-png.flaticon.com/512/443/443572.png",
@@ -167,22 +67,7 @@ iconAnchor:[25,50]
 });
 
 ////////////////////////////////////////////////////
-// LOCALIZAÇÃO
-////////////////////////////////////////////////////
-
-map.locate({setView:true,maxZoom:16});
-
-map.on("locationfound",function(e){
-
-L.marker(e.latlng,{icon:personIcon})
-.addTo(map)
-.bindPopup("Você está aqui")
-.openPopup();
-
-});
-
-////////////////////////////////////////////////////
-// FUNÇÃO PARA PEGAR ENDEREÇO FILTRADO
+// FUNÇÃO PARA PEGAR ENDEREÇO
 ////////////////////////////////////////////////////
 
 async function getAddress(lat,lon){
@@ -201,21 +86,18 @@ let numero=addr.house_number || "";
 let cidade=addr.city || addr.town || addr.village || "";
 let estado=addr.state || "";
 
-return `
-${rua} ${numero}<br>
-${cidade} - ${estado}
-`;
+return `${rua} ${numero}<br>${cidade} - ${estado}`;
 
 }catch(e){
 
-return "Endereço não encontrado";
+return "";
 
 }
 
 }
 
 ////////////////////////////////////////////////////
-// CARREGAR IGREJAS
+// CARREGAR GEOJSON
 ////////////////////////////////////////////////////
 
 fetch("exportchurches.geojson")
@@ -232,7 +114,8 @@ return L.marker(latlng,{icon:crossIcon});
 
 onEachFeature:function(feature,layer){
 
-let nome=feature.properties.name || "Igreja";
+// AGORA USA O CAMPO CORRETO
+let nome=feature.properties.nome || "Igreja";
 
 let tooltip=L.tooltip({
 direction:"top",
